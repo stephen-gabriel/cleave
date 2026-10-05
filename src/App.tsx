@@ -1,0 +1,392 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createWalletClient, formatEther, formatUnits, http, parseEther } from 'viem'
+import type { Hash } from 'viem'
+import { monadTestnet } from 'viem/chains'
+import {
+  DEPLOYER_ADDRESS,
+  EVM_ACCOUNT_PATH,
+  FUND_DEPLOYER_AMOUNT_MON,
+  MINT_GAS_LIMIT,
+  MOCK_STOCK_ABI,
+  MOCK_STOCK_ADDRESS,
+  SEND_AMOUNT_MON,
+  TRANSFER_GAS_LIMIT,
+} from './config'
+import {
+  connect,
+  describeError,
+  explorerTxUrl,
+  FAUCET_URL,
+  forgetCredential,
+  loadCredential,
+  publicClient,
+  type PasskeyWallet,
+} from './wallet'
+import './App.css'
+
+type Action = 'connect' | 'send' | 'fund' | 'mint'
+
+type Result = {
+  label: string
+  hash: Hash
+  gasUsed: bigint
+  status: 'success' | 'reverted'
+}
+
+function App() {
+  const [hasPasskey] = useState(() => loadCredential() !== undefined)
+  const [wallet, setWallet] = useState<PasskeyWallet | null>(null)
+  const [balance, setBalance] = useState<bigint | null>(null)
+  const [stock, setStock] = useState<{ balance: bigint; mintAmount: bigint } | null>(null)
+  const [action, setAction] = useState<Action | null>(null)
+  const [result, setResult] = useState<Result | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const walletRef = useRef<PasskeyWallet | null>(null)
+  const busy = action !== null
+
+  const dispose = useCallback(() => {
+    walletRef.current?.session.end()
+    walletRef.current = null
+  }, [])
+
+  useEffect(() => dispose, [dispose])
+
+  const walletClient = useMemo(
+    () =>
+      wallet === null
+        ? null
+        : createWalletClient({
+            account: wallet.account,
+            chain: monadTestnet,
+            transport: http(),
+          }),
+    [wallet],
+  )
+
+  const readStock = useCallback(async (holder: `0x${string}`) => {
+    if (MOCK_STOCK_ADDRESS === undefined) {
+      setStock(null)
+      return
+    }
+    try {
+      const [tokenBalance, mintAmount] = await Promise.all([
+        publicClient.readContract({
+          address: MOCK_STOCK_ADDRESS,
+          abi: MOCK_STOCK_ABI,
+          functionName: 'balanceOf',
+          args: [holder],
+        }),
+        publicClient.readContract({
+          address: MOCK_STOCK_ADDRESS,
+          abi: MOCK_STOCK_ABI,
+          functionName: 'MINT_AMOUNT',
+        }),
+      ])
+      setStock({ balance: tokenBalance, mintAmount })
+    } catch {
+      setStock(null)
+    }
+  }, [])
+
+  const refresh = useCallback(
+    async (holder: `0x${string}`) => {
+      setBalance(await publicClient.getBalance({ address: holder }))
+      await readStock(holder)
+    },
+    [readStock],
+  )
+
+  const run = useCallback(
+    async (which: Action, label: string, send: () => Promise<Hash>) => {
+      const holder = walletRef.current?.account.address
+      if (holder === undefined) return
+      setAction(which)
+      setError(null)
+      setResult(null)
+      try {
+        const hash = await send()
+        const receipt = await publicClient.waitForTransactionReceipt({ hash })
+        setResult({ label, hash, gasUsed: receipt.gasUsed, status: receipt.status })
+        await refresh(holder)
+      } catch (cause) {
+        setError(describeError(cause))
+      } finally {
+        setAction(null)
+      }
+    },
+    [refresh],
+  )
+
+  const onConnect = async () => {
+    setAction('connect')
+    setError(null)
+    try {
+      dispose()
+      const { wallet: opened } = await connect(window.location.hostname)
+      walletRef.current = opened
+      setWallet(opened)
+      setResult(null)
+      await refresh(opened.account.address)
+    } catch (cause) {
+      setError(describeError(cause))
+    } finally {
+      setAction(null)
+    }
+  }
+
+  const onSendToSelf = () => {
+    const client = walletClient
+    const me = wallet?.account.address
+    if (client === null || me === undefined) return
+    return run('send', `Sent ${SEND_AMOUNT_MON} MON to self`, () =>
+      client.sendTransaction({
+        to: me,
+        value: parseEther(SEND_AMOUNT_MON),
+        gas: TRANSFER_GAS_LIMIT,
+      }),
+    )
+  }
+
+  const onFundDeployer = () => {
+    const client = walletClient
+    const deployer = DEPLOYER_ADDRESS
+    if (client === null || deployer === undefined) return
+    return run('fund', `Funded deployer with ${FUND_DEPLOYER_AMOUNT_MON} MON`, () =>
+      client.sendTransaction({
+        to: deployer,
+        value: parseEther(FUND_DEPLOYER_AMOUNT_MON),
+        gas: TRANSFER_GAS_LIMIT,
+      }),
+    )
+  }
+
+  const onMint = () => {
+    const client = walletClient
+    const token = MOCK_STOCK_ADDRESS
+    if (client === null || token === undefined) return
+    return run('mint', 'Minted MockStock', () =>
+      client.writeContract({
+        address: token,
+        abi: MOCK_STOCK_ABI,
+        functionName: 'mint',
+        gas: MINT_GAS_LIMIT,
+      }),
+    )
+  }
+
+  const onLock = () => {
+    dispose()
+    setWallet(null)
+    setBalance(null)
+    setStock(null)
+    setResult(null)
+  }
+
+  const onReset = () => {
+    dispose()
+    forgetCredential()
+    setWallet(null)
+    setBalance(null)
+    setStock(null)
+    setResult(null)
+    setError('Stored passkey removed. Reload to create a new account.')
+  }
+
+  const secureContext = window.isSecureContext
+  const webauthnAvailable = typeof window.PublicKeyCredential !== 'undefined'
+  const mon = balance === null ? null : Number(formatEther(balance)).toFixed(4)
+
+  return (
+    <main className="app">
+      <header className="head">
+        <h1>Passkey wallet on Monad</h1>
+        <p className="sub">
+          @category-labs/mera derives an EVM key from a WebAuthn PRF output. viem signs
+          and broadcasts; the private key never leaves the signing session.
+        </p>
+      </header>
+
+      {!secureContext && (
+        <p className="banner banner--warn">
+          WebAuthn needs a secure context. Serve this app over HTTPS, or use localhost.
+        </p>
+      )}
+      {secureContext && !webauthnAvailable && (
+        <p className="banner banner--warn">
+          This browser does not expose the WebAuthn credential API.
+        </p>
+      )}
+
+      {wallet === null ? (
+        <section className="card">
+          <h2>{hasPasskey ? 'Sign in' : 'Create a passkey'}</h2>
+          <p className="muted">
+            {hasPasskey
+              ? 'Your passkey is stored on this device. One tap signs in and re-derives the same account.'
+              : 'Creates a discoverable passkey scoped to this host and returns its first 32 secret bytes through the PRF extension.'}
+          </p>
+          <dl className="facts">
+            <div>
+              <dt>Relying party</dt>
+              <dd>{window.location.hostname}</dd>
+            </div>
+            <div>
+              <dt>Chain</dt>
+              <dd>
+                {monadTestnet.name} · {monadTestnet.id}
+              </dd>
+            </div>
+            <div>
+              <dt>Derivation path</dt>
+              <dd>{EVM_ACCOUNT_PATH}</dd>
+            </div>
+          </dl>
+          <button
+            type="button"
+            onClick={onConnect}
+            disabled={busy || !secureContext || !webauthnAvailable}
+          >
+            {action === 'connect' ? 'Waiting for authenticator…' : hasPasskey ? 'Sign in with passkey' : 'Create passkey'}
+          </button>
+          {hasPasskey && (
+            <button type="button" className="ghost" onClick={onReset}>
+              Forget this passkey
+            </button>
+          )}
+        </section>
+      ) : (
+        <>
+          <section className="card">
+            <h2>Account</h2>
+            <p className="label">Address</p>
+            <p className="address">{wallet.account.address}</p>
+
+            <dl className="facts">
+              <div>
+                <dt>MON balance</dt>
+                <dd>{mon === null ? '…' : `${mon} MON`}</dd>
+              </div>
+              <div>
+                <dt>Derivation path</dt>
+                <dd>{EVM_ACCOUNT_PATH}</dd>
+              </div>
+              <div>
+                <dt>Adapter</dt>
+                <dd>toViemAccount · source {wallet.account.source}</dd>
+              </div>
+            </dl>
+
+            <button type="button" onClick={onSendToSelf} disabled={busy}>
+              {action === 'send' ? 'Sending…' : `Send ${SEND_AMOUNT_MON} MON to myself`}
+            </button>
+
+            <dl className="facts">
+              <div>
+                <dt>Amount</dt>
+                <dd>{SEND_AMOUNT_MON} MON</dd>
+              </div>
+              <div>
+                <dt>Gas limit</dt>
+                <dd>{TRANSFER_GAS_LIMIT.toLocaleString('en-US')}</dd>
+              </div>
+            </dl>
+
+            <p className="muted">
+              Monad charges the declared gas limit, so this transfer declares exactly{' '}
+              {TRANSFER_GAS_LIMIT.toLocaleString('en-US')} — the intrinsic cost of a
+              value transfer with no calldata. Get testnet MON from the{' '}
+              <a href={FAUCET_URL} target="_blank" rel="noreferrer">
+                faucet
+              </a>
+              .
+            </p>
+          </section>
+
+          <section className="card">
+            <h2>MockStock</h2>
+
+            {MOCK_STOCK_ADDRESS === undefined ? (
+              <>
+                <p className="muted">
+                  Not deployed yet. Fund the throwaway deployer, then run{' '}
+                  <code>npm run deploy:mockstock</code> and restart the dev server.
+                </p>
+                <dl className="facts">
+                  <div>
+                    <dt>Deployer</dt>
+                    <dd>{DEPLOYER_ADDRESS ?? 'not configured'}</dd>
+                  </div>
+                  <div>
+                    <dt>Needs</dt>
+                    <dd>{FUND_DEPLOYER_AMOUNT_MON} MON</dd>
+                  </div>
+                </dl>
+                <button
+                  type="button"
+                  onClick={onFundDeployer}
+                  disabled={busy || DEPLOYER_ADDRESS === undefined}
+                >
+                  {action === 'fund'
+                    ? 'Funding…'
+                    : `Fund deployer with ${FUND_DEPLOYER_AMOUNT_MON} MON`}
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="label">Contract</p>
+                <p className="address">{MOCK_STOCK_ADDRESS}</p>
+                <dl className="facts">
+                  <div>
+                    <dt>Your balance</dt>
+                    <dd>{stock === null ? '…' : `${formatUnits(stock.balance, 18)} MOCK`}</dd>
+                  </div>
+                  <div>
+                    <dt>Per mint</dt>
+                    <dd>{stock === null ? '…' : `${formatUnits(stock.mintAmount, 18)} MOCK`}</dd>
+                  </div>
+                  <div>
+                    <dt>Gas limit</dt>
+                    <dd>{MINT_GAS_LIMIT.toLocaleString('en-US')}</dd>
+                  </div>
+                </dl>
+                <button type="button" onClick={onMint} disabled={busy}>
+                  {action === 'mint' ? 'Minting…' : 'Mint MockStock'}
+                </button>
+                <a
+                  className="hash"
+                  href={`${monadTestnet.blockExplorers.default.url}/address/${MOCK_STOCK_ADDRESS}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  View contract on explorer
+                </a>
+              </>
+            )}
+          </section>
+
+          {result !== null && (
+            <section className="card result">
+              <p className="label">{result.label}</p>
+              <a className="hash" href={explorerTxUrl(result.hash)} target="_blank" rel="noreferrer">
+                {result.hash}
+              </a>
+              <p className="muted">
+                {result.status === 'success' ? 'Confirmed' : 'Reverted'} · gas used{' '}
+                {result.gasUsed.toLocaleString('en-US')}
+              </p>
+            </section>
+          )}
+
+          <button type="button" className="ghost lock" onClick={onLock}>
+            Lock session
+          </button>
+        </>
+      )}
+
+      {error !== null && <p className="banner banner--error">{error}</p>}
+    </main>
+  )
+}
+
+export default App
