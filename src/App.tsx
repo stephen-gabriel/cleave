@@ -12,6 +12,7 @@ import {
   SEND_AMOUNT_MON,
   TRANSFER_GAS_LIMIT,
 } from './config'
+import { requiredBalance, resolveFees, sendWithFees, type Fees } from './fees'
 import {
   connect,
   describeError,
@@ -23,6 +24,16 @@ import {
   type PasskeyWallet,
 } from './wallet'
 import './App.css'
+
+/**
+ * Used only for the first paint, before the live baseFee is known. Matches the
+ * 100 gwei baseFee and 2 gwei priority fee observed on Monad testnet.
+ */
+const FALLBACK_FEES: Fees = {
+  maxFeePerGas: 200_000_000_000n,
+  maxPriorityFeePerGas: 2_000_000_000n,
+  baseFeePerGas: 100_000_000_000n,
+}
 
 type Action = 'connect' | 'send' | 'fund' | 'mint'
 
@@ -41,6 +52,7 @@ function App() {
   const [action, setAction] = useState<Action | null>(null)
   const [result, setResult] = useState<Result | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [fees, setFees] = useState<Fees | null>(null)
 
   const walletRef = useRef<PasskeyWallet | null>(null)
   const busy = action !== null
@@ -93,6 +105,11 @@ function App() {
     async (holder: `0x${string}`) => {
       setBalance(await publicClient.getBalance({ address: holder }))
       await readStock(holder)
+      try {
+        setFees(await resolveFees())
+      } catch {
+        // Keep the last known fees; sendWithFees re-resolves before every send.
+      }
     },
     [readStock],
   )
@@ -140,11 +157,17 @@ function App() {
     const me = wallet?.account.address
     if (client === null || me === undefined) return
     return run('send', `Sent ${SEND_AMOUNT_MON} MON to self`, () =>
-      client.sendTransaction({
-        to: me,
-        value: parseEther(SEND_AMOUNT_MON),
-        gas: TRANSFER_GAS_LIMIT,
-      }),
+      sendWithFees(
+        (fees) =>
+          client.sendTransaction({
+            to: me,
+            value: parseEther(SEND_AMOUNT_MON),
+            gas: TRANSFER_GAS_LIMIT,
+            ...fees,
+          }),
+        TRANSFER_GAS_LIMIT,
+        balance ?? 0n,
+      ),
     )
   }
 
@@ -153,11 +176,17 @@ function App() {
     const deployer = DEPLOYER_ADDRESS
     if (client === null || deployer === undefined) return
     return run('fund', `Funded deployer with ${FUND_DEPLOYER_AMOUNT_MON} MON`, () =>
-      client.sendTransaction({
-        to: deployer,
-        value: parseEther(FUND_DEPLOYER_AMOUNT_MON),
-        gas: TRANSFER_GAS_LIMIT,
-      }),
+      sendWithFees(
+        (fees) =>
+          client.sendTransaction({
+            to: deployer,
+            value: parseEther(FUND_DEPLOYER_AMOUNT_MON),
+            gas: TRANSFER_GAS_LIMIT,
+            ...fees,
+          }),
+        TRANSFER_GAS_LIMIT,
+        balance ?? 0n,
+      ),
     )
   }
 
@@ -166,12 +195,18 @@ function App() {
     const token = MOCK_STOCK_ADDRESS
     if (client === null || token === undefined) return
     return run('mint', 'Minted MockStock', () =>
-      client.writeContract({
-        address: token,
-        abi: MOCK_STOCK_ABI,
-        functionName: 'mint',
-        gas: MINT_GAS_LIMIT,
-      }),
+      sendWithFees(
+        (fees) =>
+          client.writeContract({
+            address: token,
+            abi: MOCK_STOCK_ABI,
+            functionName: 'mint',
+            gas: MINT_GAS_LIMIT,
+            ...fees,
+          }),
+        MINT_GAS_LIMIT,
+        balance ?? 0n,
+      ),
     )
   }
 
@@ -196,6 +231,12 @@ function App() {
   const secureContext = window.isSecureContext
   const webauthnAvailable = typeof window.PublicKeyCredential !== 'undefined'
   const mon = balance === null ? null : Number(formatEther(balance)).toFixed(4)
+  // Mirrors the node's own upfront check so the button reflects real affordability
+// instead of letting a thin account discover the problem through an RPC error.
+const mintRequirementWei =
+    fees === null ? requiredBalance(MINT_GAS_LIMIT, FALLBACK_FEES) : requiredBalance(MINT_GAS_LIMIT, fees)
+  const mintRequirement = formatEther(mintRequirementWei)
+  const canAffordMint = balance === null || balance >= mintRequirementWei
 
   return (
     <main className="app">
@@ -345,14 +386,32 @@ function App() {
                     <dt>Per mint</dt>
                     <dd>{stock === null ? '…' : `${formatUnits(stock.mintAmount, 18)} MOCK`}</dd>
                   </div>
-                  <div>
+<div>
                     <dt>Gas limit</dt>
                     <dd>{MINT_GAS_LIMIT.toLocaleString('en-US')}</dd>
                   </div>
+                  <div>
+                    <dt>Max fee</dt>
+                    <dd>
+                      {fees === null
+                        ? '…'
+                        : `${(Number(fees.maxFeePerGas) / 1e9).toString()} gwei`}
+                    </dd>
+                  </div>
                 </dl>
-                <button type="button" onClick={onMint} disabled={busy}>
-                  {action === 'mint' ? 'Minting…' : 'Mint MockStock'}
-                </button>
+                <button type="button" onClick={onMint} disabled={busy || !canAffordMint}>
+              {action === 'mint' ? 'Minting…' : 'Mint MockStock'}
+            </button>
+            {!canAffordMint && mon !== null && (
+              <p className="muted">
+                Needs {mintRequirement} MON to cover the declared gas limit. This account holds{' '}
+                {mon} MON — top up from the{' '}
+                <a href={FAUCET_URL} target="_blank" rel="noreferrer">
+                  faucet
+                </a>
+                .
+              </p>
+            )}
                 <a
                   className="hash"
                   href={`${monadTestnet.blockExplorers.default.url}/address/${MOCK_STOCK_ADDRESS}`}
