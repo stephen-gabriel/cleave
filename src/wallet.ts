@@ -66,15 +66,33 @@ function openWallet(prfOutput: Uint8Array): PasskeyWallet {
   return { session, account: toViemAccount(session) }
 }
 
-export async function connect(rpId: string): Promise<{
-  wallet: PasskeyWallet
-  created: boolean
-}> {
-  const known = loadCredential()
-  if (known !== undefined) {
-    const { prfOutput } = await getPasskeyPrfOutput({ rpId, credential: known })
+export type ConnectMode = 'stored' | 'discoverable' | 'create'
+
+export async function connect(
+  rpId: string,
+  mode: ConnectMode,
+): Promise<{ wallet: PasskeyWallet; created: boolean }> {
+  // A stored credentialId is only a UX shortcut. Identity comes from the PRF
+  // output, which the authenticator recomputes from the credential itself, so
+  // clearing site data loses no funds: 'discoverable' lets the platform offer
+  // any credential registered for this rpId and derives the same account.
+  if (mode === 'stored') {
+    const known = loadCredential()
+    if (known === undefined) return connect(rpId, 'discoverable')
+    const { prfOutput, credentialId } = await getPasskeyPrfOutput({ rpId, credential: known })
+    saveCredential({ ...known, credentialId })
     return { wallet: openWallet(prfOutput), created: false }
   }
+
+  if (mode === 'discoverable') {
+    const { prfOutput, credentialId } = await getPasskeyPrfOutput({ rpId })
+    // Re-cache the selected credential so later sign-ins can skip the picker.
+    // Transports are unknown for a discovered credential; WebAuthn treats a
+    // missing list as "try all", which is what we want.
+    saveCredential({ credentialId })
+    return { wallet: openWallet(prfOutput), created: false }
+  }
+
   const result = await createPasskeyWithPrfOutput({
     rp: { id: rpId, name: 'Cleave' },
     user: { name: rpId, displayName: 'Cleave account' },
@@ -90,6 +108,9 @@ export function describeError(error: unknown): string {
     }
     if (error.code === 'SESSION_ENDED') {
       return 'The signing session has ended. Sign in again.'
+    }
+    if (error.code === 'PASSKEY_OPERATION_FAILED') {
+      return 'Sign-in was cancelled or no passkey matched this site. Use "Create a new passkey instead" if you have not registered one here yet.'
     }
     return error.message
   }

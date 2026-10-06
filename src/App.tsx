@@ -21,6 +21,7 @@ import {
   forgetCredential,
   loadCredential,
   publicClient,
+  type ConnectMode,
   type PasskeyWallet,
 } from './wallet'
 import './App.css'
@@ -45,7 +46,7 @@ type Result = {
 }
 
 function App() {
-  const [hasPasskey] = useState(() => loadCredential() !== undefined)
+  const [hasPasskey, setHasPasskey] = useState(() => loadCredential() !== undefined)
   const [wallet, setWallet] = useState<PasskeyWallet | null>(null)
   const [balance, setBalance] = useState<bigint | null>(null)
   const [stock, setStock] = useState<{ balance: bigint; mintAmount: bigint } | null>(null)
@@ -135,16 +136,22 @@ function App() {
     [refresh],
   )
 
-  const onConnect = async () => {
+  const onConnect = async (mode: ConnectMode) => {
     setAction('connect')
     setError(null)
     try {
       dispose()
-      const { wallet: opened } = await connect(window.location.hostname)
+      const { wallet: opened, created } = await connect(window.location.hostname, mode)
       walletRef.current = opened
       setWallet(opened)
       setResult(null)
+      setHasPasskey(loadCredential() !== undefined)
       await refresh(opened.account.address)
+      if (created) {
+        setError(
+          'New passkey created. This is a separate account with its own balance, not your previous one.',
+        )
+      }
     } catch (cause) {
       setError(describeError(cause))
     } finally {
@@ -221,11 +228,14 @@ function App() {
   const onReset = () => {
     dispose()
     forgetCredential()
+    setHasPasskey(false)
     setWallet(null)
     setBalance(null)
     setStock(null)
     setResult(null)
-    setError('Stored passkey removed. Reload to create a new account.')
+    setError(
+      'Cached credential forgotten. Sign in again to pick the same passkey back up; no funds are affected.',
+    )
   }
 
   const secureContext = window.isSecureContext
@@ -261,11 +271,10 @@ const mintRequirementWei =
 
       {wallet === null ? (
         <section className="card">
-          <h2>{hasPasskey ? 'Sign in' : 'Create a passkey'}</h2>
+          <h2>Sign in</h2>
           <p className="muted">
-            {hasPasskey
-              ? 'Your passkey is stored on this device. One tap signs in and re-derives the same account.'
-              : 'Creates a discoverable passkey scoped to this host and returns its first 32 secret bytes through the PRF extension.'}
+            Select the passkey you registered for this site and its PRF output
+            re-derives the same account.
           </p>
           <dl className="facts">
             <div>
@@ -285,14 +294,40 @@ const mintRequirementWei =
           </dl>
           <button
             type="button"
-            onClick={onConnect}
+            onClick={() => void onConnect('discoverable')}
             disabled={busy || !secureContext || !webauthnAvailable}
           >
-            {action === 'connect' ? 'Waiting for authenticator…' : hasPasskey ? 'Sign in with passkey' : 'Create passkey'}
+            {action === 'connect' ? 'Waiting for authenticator…' : 'Sign in with existing passkey'}
           </button>
+
+          {/*
+            Discovery does not depend on localStorage: getPasskeyPrfOutput with no
+            allowCredentials lets the authenticator offer every credential it holds
+            for this rpId, and the PRF output re-derives the same account. Clearing
+            site data therefore costs nothing. Creating a new passkey is a separate
+            account with its own balance, so it sits behind a secondary button.
+          */}
+          <p className="muted">
+            Finds this account from the passkey itself, so clearing site data does not
+            strand funds.
+          </p>
+
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => void onConnect('create')}
+            disabled={busy || !secureContext || !webauthnAvailable}
+          >
+            Create a new passkey instead
+          </button>
+          <p className="muted">
+            This derives a different address with its own balance. Use it only if you
+            want a second account.
+          </p>
+
           {hasPasskey && (
             <button type="button" className="ghost" onClick={onReset}>
-              Forget this passkey
+              Forget cached credential
             </button>
           )}
         </section>

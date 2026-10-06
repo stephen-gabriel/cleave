@@ -19,6 +19,12 @@ cache
 # Throwaway deployer key. Never commit.
 .env.deployer
 
+# Local env. Holds only public values today (RPC URL, deployer address, contract
+# address), but is untracked so a future secret cannot leak by accident. Vite
+# reads it locally; Vercel must define these in project settings instead.
+.env
+.env.*
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
