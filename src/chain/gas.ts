@@ -1,18 +1,19 @@
-// Gas limits measured on Monad Testnet, then multiplied by 1.25 as specified
-// These are initial baseline values; actual values should be measured via estimateGas
-
+// Gas limits measured on Monad Testnet via estimateGas (frd.md §2, T1.3),
+// then multiplied by 1.25 and rounded up. Monad charges the declared limit,
+// so the +25% headroom is the value the app sends as `gas`.
+// measured (wei): faucet=63457, approve=33024, split=171509, merge=162636, swap=187426, addLiquidity=205289, removeLiquidity=182060, claim=58216, declareDemo=189537, distribute=173380, nativeTransfer=27344
 export const GAS_LIMITS = {
-  approve: 60000n * 125n / 100n,
-  faucet: 90000n * 125n / 100n,
-  split: 250000n * 125n / 100n,
-  merge: 250000n * 125n / 100n,
-  swap: 230000n * 125n / 100n,
-  addLiquidity: 260000n * 125n / 100n,
-  removeLiquidity: 230000n * 125n / 100n,
-  claim: 150000n * 125n / 100n,
-  distribute: 250000n * 125n / 100n,
-  declareDemo: 160000n * 125n / 100n,
-  nativeTransfer: 21000n * 125n / 100n,
+  faucet: 79322n,
+  approve: 41280n,
+  split: 214387n,
+  merge: 203295n,
+  swap: 234283n,
+  addLiquidity: 256612n,
+  removeLiquidity: 227575n,
+  claim: 72770n,
+  declareDemo: 236922n,
+  distribute: 216725n,
+  nativeTransfer: 34180n,
 } as const
 
 export const GAS_HEADROOM_PERCENT = 125n
