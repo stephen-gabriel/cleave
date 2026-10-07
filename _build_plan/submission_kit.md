@@ -74,3 +74,7 @@ Sample Envio query to include:
 - *Can the dividend feed be gamed?* Entitlement is by holders at the payout transaction (documented); production would use snapshots and a verified issuer feed.
 - *Why no deployed CRE?* Deployment needs separate access; the CLI simulation with broadcast writes real transactions on Monad Testnet.
 - *What is next?* Pilot with a tokenized-equity issuer, multiple series, snapshot payouts, liquidity partner plan.
+
+## 7. Live URL
+
+Production: https://cleave-web.vercel.app
