@@ -10,7 +10,10 @@
     "preview": "vite preview",
     "compile": "hardhat compile",
     "deploy:mockstock": "hardhat run scripts/deploy-mock-stock.ts --network monadTestnet",
-    "deployer:new": "hardhat run scripts/generate-deployer-key.ts"
+    "deployer:new": "hardhat run scripts/generate-deployer-key.ts",
+    "deploy:cleave": "hardhat run scripts/deploy-cleave.ts --network monadTestnet",
+    "seed": "hardhat run scripts/seed.ts --network monadTestnet",
+    "deploy:calculator": "hardhat run scripts/deploy-calculator-consumer.ts --network monadTestnet"
   },
   "dependencies": {
     "@category-labs/mera": "^0.2.0",
