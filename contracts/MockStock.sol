@@ -2,12 +2,12 @@
 pragma solidity ^0.8.24;
 
 import {IERC20} from "./IERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-/// @notice Permissionless test token. `mint()` is intentionally open so the
-/// app can exercise a contract call signed by the passkey session.
-contract MockStock is IERC20 {
-    string public constant name = "MockStock";
-    string public constant symbol = "MOCK";
+/// @notice Mock Acme Corp (mACME) — testnet stock token with a public faucet.
+contract MockStock is IERC20, Ownable {
+    string public constant name = "Mock Acme Corp";
+    string public constant symbol = "mACME";
     uint8 public constant decimals = 18;
 
     uint256 public constant MINT_AMOUNT = 1_000e18;
@@ -16,8 +16,16 @@ contract MockStock is IERC20 {
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
 
-    function mint() external {
+    constructor() Ownable(msg.sender) {}
+
+    /// @notice Mints 1,000e18 mACME to the caller. Unlimited: testnet mock.
+    function faucet() external {
         _mint(msg.sender, MINT_AMOUNT);
+    }
+
+    /// @notice Owner mint, used for seeding.
+    function mint(address to, uint256 amount) external onlyOwner {
+        _mint(to, amount);
     }
 
     function transfer(address to, uint256 value) external returns (bool) {

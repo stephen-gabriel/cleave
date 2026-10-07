@@ -207,7 +207,7 @@ function App() {
           client.writeContract({
             address: token,
             abi: MOCK_STOCK_ABI,
-            functionName: 'mint',
+            functionName: 'faucet',
             gas: MINT_GAS_LIMIT,
             ...fees,
           }),

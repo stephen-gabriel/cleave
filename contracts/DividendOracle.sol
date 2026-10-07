@@ -2,15 +2,17 @@
 pragma solidity ^0.8.24;
 
 import {ReceiverTemplate} from "./interfaces/ReceiverTemplate.sol";
-import {MockUSD} from "./MockUSD.sol";
 
+/// @notice Dividend declarations fed by the Chainlink CRE workflow (or the
+/// labelled demo trigger).
 contract DividendOracle is ReceiverTemplate {
     struct Declaration {
-        uint256 seq;
-        uint256 amountPerShare;
-        uint256 refPrice;
+        uint64 id; // 1-based
+        uint256 seq; // feed sequence (CRE) or 0 (DEMO)
+        uint256 amountPerShare; // mUSD (1e18) per 1 mACME
+        uint256 refPrice; // reference mACME price in mUSD (1e18), display only
         uint64 declaredAt;
-        uint64 exAt;
+        uint64 exAt; // declaredAt + NOTICE_SECONDS
         Source source;
     }
 
@@ -21,14 +23,14 @@ contract DividendOracle is ReceiverTemplate {
 
     uint64 public constant NOTICE_SECONDS = 60;
     uint64 public constant DEMO_COOLDOWN = 120;
-    
+
     uint64 public count;
     uint256 public lastSeq;
     uint256 public lastRefPrice = 100e18;
     uint64 public lastDemoAt;
-    
+
     mapping(uint64 => Declaration) internal _decl;
-    
+
     event DividendDeclared(
         uint64 indexed id,
         uint256 seq,
@@ -49,22 +51,24 @@ contract DividendOracle is ReceiverTemplate {
         return _decl[count];
     }
 
+    /// @dev CRE path: report = abi.encode(uint256 seq, uint256 amountPerShare, uint256 refPrice).
+    /// Only callable by the configured forwarder (enforced by ReceiverTemplate).
     function _processReport(bytes calldata report) internal override {
-        (uint256 seq, uint256 amountPerShare, uint256 refPrice) = 
+        (uint256 seq, uint256 amountPerShare, uint256 refPrice) =
             abi.decode(report, (uint256, uint256, uint256));
-        
+
         require(seq > lastSeq, "DividendOracle: seq must increase");
-        require(amountPerShare >= 0.01e18 && amountPerShare <= 5e18, "DividendOracle: bad amount");
-        require(refPrice >= 1e18 && refPrice <= 10000e18, "DividendOracle: bad refPrice");
-        
+        _validate(amountPerShare, refPrice);
+
         lastSeq = seq;
         lastRefPrice = refPrice;
         count++;
-        
+
         uint64 declaredAt = uint64(block.timestamp);
         uint64 exAt = declaredAt + NOTICE_SECONDS;
-        
+
         _decl[count] = Declaration({
+            id: count,
             seq: seq,
             amountPerShare: amountPerShare,
             refPrice: refPrice,
@@ -72,23 +76,25 @@ contract DividendOracle is ReceiverTemplate {
             exAt: exAt,
             source: Source.CRE
         });
-        
+
         emit DividendDeclared(count, seq, amountPerShare, refPrice, exAt, uint8(Source.CRE));
     }
 
+    /// @notice Demo path (anyone, labelled in the UI). Uses lastRefPrice.
     function declareDemo(uint256 amountPerShare) external {
-        require(block.timestamp >= lastDemoAt + DEMO_COOLDOWN, "DividendOracle: cooldown");
-        require(amountPerShare >= 0.01e18 && amountPerShare <= 5e18, "DividendOracle: bad amount");
-        
+        require(block.timestamp >= uint256(lastDemoAt) + DEMO_COOLDOWN, "DividendOracle: cooldown");
+        _validate(amountPerShare, lastRefPrice);
+
         lastDemoAt = uint64(block.timestamp);
         uint256 seq = lastSeq + 1;
         lastSeq = seq;
         count++;
-        
+
         uint64 declaredAt = uint64(block.timestamp);
         uint64 exAt = declaredAt + NOTICE_SECONDS;
-        
+
         _decl[count] = Declaration({
+            id: count,
             seq: seq,
             amountPerShare: amountPerShare,
             refPrice: lastRefPrice,
@@ -96,7 +102,15 @@ contract DividendOracle is ReceiverTemplate {
             exAt: exAt,
             source: Source.DEMO
         });
-        
+
         emit DividendDeclared(count, seq, amountPerShare, lastRefPrice, exAt, uint8(Source.DEMO));
+    }
+
+    function _validate(uint256 amountPerShare, uint256 refPrice) internal pure {
+        require(
+            amountPerShare >= 0.01e18 && amountPerShare <= 5e18,
+            "DividendOracle: bad amount"
+        );
+        require(refPrice >= 1e18 && refPrice <= 10_000e18, "DividendOracle: bad refPrice");
     }
 }

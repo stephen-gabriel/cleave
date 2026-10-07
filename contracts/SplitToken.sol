@@ -3,6 +3,8 @@ pragma solidity ^0.8.24;
 
 import {IERC20} from "./IERC20.sol";
 
+/// @notice ERC20 used for both Cleave legs. Two instances are deployed by the
+/// Splitter: a plain price leg and a dividend leg with an accumulator.
 contract SplitToken is IERC20 {
     string public name;
     string public symbol;
@@ -20,6 +22,9 @@ contract SplitToken is IERC20 {
     uint256 public accPerToken;
     mapping(address => uint256) public paid;
     mapping(address => uint256) public owed;
+
+    /// @notice mUSD token used to pay claims; set once by the Splitter.
+    address public usd;
 
     event Claimed(address indexed account, uint256 amount);
 
@@ -41,6 +46,10 @@ contract SplitToken is IERC20 {
 
     function burn(address from, uint256 value) external onlySplitter {
         _burn(from, value);
+    }
+
+    function setUSD(address _usd) external onlySplitter {
+        usd = _usd;
     }
 
     function transfer(address to, uint256 value) external returns (bool) {
@@ -69,18 +78,15 @@ contract SplitToken is IERC20 {
     }
 
     function _mint(address to, uint256 value) private {
-        if (isDividendLeg && totalSupply > 0) {
+        if (isDividendLeg) {
+            // Settle any accrued amount on the pre-mint balance first so the
+            // new tokens never earn dividends from before they existed.
             _settle(to);
-        } else if (isDividendLeg) {
-            paid[to] = accPerToken;
         }
         require(to != address(0), "ERC20: mint to zero");
         totalSupply += value;
         unchecked {
             balanceOf[to] += value;
-        }
-        if (isDividendLeg && totalSupply > 0) {
-            // After mint, need to adjust paid? No - accPerToken unchanged; _settle not needed if just minted; but easier to handle in update/mint
         }
         emit Transfer(address(0), to, value);
     }
@@ -134,29 +140,16 @@ contract SplitToken is IERC20 {
         return owed[a] + (balanceOf[a] * (accPerToken - paid[a])) / SCALE;
     }
 
+    /// @notice Pays out settled and unsettled dividends in mUSD.
     function claim() external {
         require(isDividendLeg, "SplitToken: not dividend leg");
         _settle(msg.sender);
         uint256 o = owed[msg.sender];
         owed[msg.sender] = 0;
-        // Note: mUSD transfer handled by caller context? No wait - need to know mUSD address
-        // mUSD is set by Splitter after deployment
-        emit Claimed(msg.sender, o);
-    }
-
-    // Need to store mUSD reference for dividend leg claims
-    address public usd;
-    
-    function setUSD(address _usd) external onlySplitter {
-        usd = _usd;
-    }
-
-    function claimWithToken(address token) external {
-        require(isDividendLeg, "SplitToken: not dividend leg");
-        _settle(msg.sender);
-        uint256 o = owed[msg.sender];
-        owed[msg.sender] = 0;
-        IERC20(token).transfer(msg.sender, o);
+        if (o > 0) {
+            require(usd != address(0), "SplitToken: usd not set");
+            require(IERC20(usd).transfer(msg.sender, o), "SplitToken: usd transfer failed");
+        }
         emit Claimed(msg.sender, o);
     }
 }
