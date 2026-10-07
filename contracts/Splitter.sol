@@ -58,7 +58,7 @@ contract Splitter {
         require(block.timestamp < maturity, "Splitter: matured");
         require(amount > 0, "Splitter: zero amount");
         
-        stock.safeTransferFrom(msg.sender, address(this), amount);
+        stock.transferFrom(msg.sender, address(this), amount);
         priceLeg.mint(msg.sender, amount);
         dividendLeg.mint(msg.sender, amount);
         
@@ -73,7 +73,7 @@ contract Splitter {
         dividendLeg.claimWithToken(address(usd));
         priceLeg.burn(msg.sender, amount);
         dividendLeg.burn(msg.sender, amount);
-        stock.safeTransfer(msg.sender, amount);
+        stock.transfer(msg.sender, amount);
         
         emit Merge(msg.sender, amount);
     }
@@ -83,7 +83,7 @@ contract Splitter {
         require(amount > 0, "Splitter: zero amount");
         
         priceLeg.burn(msg.sender, amount);
-        stock.safeTransfer(msg.sender, amount);
+        stock.transfer(msg.sender, amount);
         
         emit Redeem(msg.sender, amount);
     }
@@ -113,7 +113,7 @@ contract Splitter {
     }
 
     function remainingDividends() external view returns (uint256) {
-        uint64 dist = distributedCount();
+        uint64 dist = nextDistributionId > 0 ? nextDistributionId - 1 : 0;
         if (dist >= plannedDividends) return 0;
         return plannedDividends - dist;
     }

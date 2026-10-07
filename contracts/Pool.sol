@@ -75,8 +75,8 @@ contract Pool {
         reserveToken += tokenAmt;
         reserveQuote += quoteAmt;
         
-        token.safeTransferFrom(msg.sender, address(this), tokenAmt);
-        quote.safeTransferFrom(msg.sender, address(this), quoteAmt);
+        token.transferFrom(msg.sender, address(this), tokenAmt);
+        quote.transferFrom(msg.sender, address(this), quoteAmt);
         
         emit LiquidityChanged(msg.sender, true, tokenAmt, quoteAmt, sh, reserveToken, reserveQuote);
     }
@@ -98,8 +98,8 @@ contract Pool {
         reserveToken -= tokenOut;
         reserveQuote -= quoteOut;
         
-        token.safeTransfer(msg.sender, tokenOut);
-        quote.safeTransfer(msg.sender, quoteOut);
+        token.transfer(msg.sender, tokenOut);
+        quote.transfer(msg.sender, quoteOut);
         
         emit LiquidityChanged(msg.sender, false, tokenOut, quoteOut, sh, reserveToken, reserveQuote);
     }
@@ -140,15 +140,15 @@ contract Pool {
         require(out >= minOut, "Pool: slippage");
         
         if (tokenIn) {
-            token.safeTransferFrom(msg.sender, address(this), amountIn);
+            token.transferFrom(msg.sender, address(this), amountIn);
             reserveToken += amountIn;
             reserveQuote -= out;
-            quote.safeTransfer(msg.sender, out);
+            quote.transfer(msg.sender, out);
         } else {
-            quote.safeTransferFrom(msg.sender, address(this), amountIn);
+            quote.transferFrom(msg.sender, address(this), amountIn);
             reserveQuote += amountIn;
             reserveToken -= out;
-            token.safeTransfer(msg.sender, out);
+            token.transfer(msg.sender, out);
         }
         
         emit Swap(msg.sender, !tokenIn, tokenIn ? amountIn : out, tokenIn ? out : amountIn, (amountIn * feeBps) / 10000, reserveToken, reserveQuote);
