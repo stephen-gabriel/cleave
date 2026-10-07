@@ -11,7 +11,7 @@ foreach ($file in $trackedFiles) {
   if (-not (Test-Path $file)) { continue }
   $content = Get-Content $file -Raw -ErrorAction SilentlyContinue
   if ($null -eq $content) { continue }
-  if ($file -match '\.env$|secrets\.yaml$|\.example$') { continue }
+  if ($file -match '\.env$|secrets\.yaml$|\.example$|scan-secrets') { continue }
   if ($content -match '0x[0-9a-fA-F]{64}') {
     $found += $file
   }
@@ -29,8 +29,7 @@ foreach ($file in $trackedFiles) {
   if (-not (Test-Path $file)) { continue }
   $content = Get-Content $file -Raw -ErrorAction SilentlyContinue
   if ($null -eq $content) { continue }
-  if ($file -match '\.env\.example$|secrets\.yaml$') { continue }
-  # Look for PRIVATE_KEY= followed by actual value (not just pattern chars in docs)
+  if ($file -match '\.env\.example$|secrets\.yaml$|scan-secrets') { continue }
   if ($content -match 'PRIVATE_KEY\s*=\s*[0-9a-fA-FxX]') {
     $foundPk += $file
   }
