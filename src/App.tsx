@@ -85,16 +85,16 @@ function App() {
     try {
       const [tokenBalance, mintAmount] = await Promise.all([
         publicClient.readContract({
-          address: MOCK_STOCK_ADDRESS,
+          address: MOCK_STOCK_ADDRESS as `0x${string}`,
           abi: MOCK_STOCK_ABI,
           functionName: 'balanceOf',
           args: [holder],
-        }),
+        }) as Promise<bigint>,
         publicClient.readContract({
-          address: MOCK_STOCK_ADDRESS,
+          address: MOCK_STOCK_ADDRESS as `0x${string}`,
           abi: MOCK_STOCK_ABI,
           functionName: 'MINT_AMOUNT',
-        }),
+        }) as Promise<bigint>,
       ])
       setStock({ balance: tokenBalance, mintAmount })
     } catch {
