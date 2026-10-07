@@ -1,32 +1,34 @@
-# React + TypeScript + Vite
+# Cleave
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+On-chain asset vaults on Monad testnet with splits, real-time dividends, and passkey accounts.
 
-Currently, two official plugins are available:
+**Live app: https://cleave-web.vercel.app**
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Stack
 
-## React Compiler
+- Solidity 0.8.28 + Hardhat 3.18 (contracts in `contracts/`)
+- React + TypeScript + Vite (`src/`)
+- viem wallet client, passkey (WebAuthn PRF) accounts (`src/wallet.ts`)
+- Vercel serverless APIs (`api/drip`, `api/dividend-feed`)
+- CREDividendCalculator consumer workflow (CRE, sibling project `Cleave-CRE`)
+- Envio indexer (sibling project `Cleave-Envio`)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Commands
 
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev        # local dev server
+npm run build      # tsc -b && vite build (must pass before every push)
+npx hardhat compile
+powershell -File .\scripts\scan-secrets.ps1   # pre-push secrets gate
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Configuration
+
+Copy `.env.example` to `.env` and fill in values. No secrets are committed.
+
+## Docs
+
+- `NOTES.md` — project paths, CRE/Envio details, run commands
+- `_build_plan/` — FRD, milestones, submission kit
+- `docs/decisions.md` — architecture decision records
