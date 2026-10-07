@@ -60,7 +60,7 @@ async function deployCore() {
     name: N,
     address: `0x${string}`,
     account: (typeof wallets)[number],
-  ) => viem.getContractAt(name, address, { client: { walletClient: account, publicClient } })
+  ) => viem.getContractAt(name, address, { client: { wallet: account, public: publicClient } })
 
   return {
     stock,
@@ -85,10 +85,10 @@ type Core = Awaited<ReturnType<typeof deployCore>>
 
 async function splitAs(c: Core, who: (typeof wallets)[number], amount: bigint): Promise<void> {
   const stockWho = await viem.getContractAt('MockStock', c.stock.address, {
-    client: { walletClient: who, publicClient },
+    client: { wallet: who, public: publicClient },
   })
   const splitterWho = await viem.getContractAt('Splitter', c.splitter.address, {
-    client: { walletClient: who, publicClient },
+    client: { wallet: who, public: publicClient },
   })
   await tx('faucet', stockWho.write.faucet())
   await tx('approve stock', stockWho.write.approve([c.splitter.address, MAX]))
@@ -138,8 +138,9 @@ describe('1. split→merge round trip returns exact stock; legs burned', () => {
 
     const splitterStock = await c.stock.read.balanceOf([c.splitter.address])
     const balStockAfter = await c.stock.read.balanceOf([alice.account.address])
+    // DBG debug would go here if needed
     // debug removed
-    console.log('DEBUG:', splitterStock, balStockAfter)
+    // debug removed
     assert.equal(balStockAfter, 1000n * E)
     assert.equal(await c.priceLegAlice.read.balanceOf([alice.account.address]), 0n)
     assert.equal(await c.divLegAlice.read.balanceOf([alice.account.address]), 0n)
@@ -356,7 +357,7 @@ describe('8. pool: k never decreases, quotes match, slippage enforced, liquidity
     await tx('mint stock to alice', c.stock.write.mint([alice.account.address, 10_000n * E]))
     await tx('mint usd to alice', c.usd.write.mint([alice.account.address, 1_000_000n * E]))
     const poolAlice = await viem.getContractAt('Pool', pool.address, {
-      client: { walletClient: alice, publicClient },
+      client: { wallet: alice, public: publicClient },
     })
     await tx('approve stock to pool', c.stockAlice.write.approve([pool.address, MAX]))
     await tx('approve usd to pool', c.usdAlice.write.approve([pool.address, MAX]))
