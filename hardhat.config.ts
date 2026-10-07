@@ -1,6 +1,8 @@
-import type { HardhatUserConfig } from 'hardhat/config'
+import hardhatToolboxViemPlugin from '@nomicfoundation/hardhat-toolbox-viem'
+import { defineConfig } from 'hardhat/config'
 
-const config: HardhatUserConfig = {
+export default defineConfig({
+  plugins: [hardhatToolboxViemPlugin],
   solidity: {
     profiles: {
       default: {
@@ -16,6 +18,4 @@ const config: HardhatUserConfig = {
       chainId: 10143,
     },
   },
-}
-
-export default config
+})
