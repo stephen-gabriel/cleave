@@ -1,0 +1,706 @@
+/* Split screen (ui_spec.md §5) — blue always Price leg, amber always Dividend leg. */
+
+.split {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.split__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 24px;
+  align-items: start;
+}
+
+.split__rail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .split__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================================================
+   Segmented tabs (Split / Merge)
+   ========================================================================== */
+
+.segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+
+.segmented__btn {
+  min-height: 40px;
+  border-radius: 9px;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: var(--fs-14);
+}
+
+.segmented__btn:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.segmented__btn--on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.segmented__btn:disabled {
+  opacity: 0.6;
+}
+
+/* ==========================================================================
+   Banner
+   ========================================================================== */
+
+.banner {
+  border-radius: var(--radius-control);
+  padding: 12px 16px;
+  font-size: var(--fs-14);
+}
+
+.banner--warn {
+  background: var(--warn-bg);
+  border: 1px solid rgba(245, 196, 81, 0.4);
+  color: var(--div);
+}
+
+/* ==========================================================================
+   Amount input
+   ========================================================================== */
+
+.amount {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.amount__label {
+  font-size: var(--fs-14);
+  color: var(--muted);
+}
+
+.amount__field {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+  transition: border-color 0.15s ease;
+}
+
+.amount__field:focus-within {
+  border-color: var(--focus);
+}
+
+.amount__input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: 0;
+  color: var(--text);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  padding: 0;
+}
+
+.amount__input:focus {
+  outline: none;
+}
+
+.amount__input::placeholder {
+  color: var(--muted);
+}
+
+.amount__suffix {
+  color: var(--muted);
+  font-size: var(--fs-14);
+  white-space: nowrap;
+}
+
+.amount__hint {
+  align-self: flex-end;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.field-error {
+  color: var(--neg);
+  font-size: var(--fs-14);
+  margin-top: 10px;
+}
+
+/* ==========================================================================
+   You hold row
+   ========================================================================== */
+
+.split__holdrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: var(--fs-14);
+}
+
+.split__balance {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.linkbtn {
+  color: var(--price);
+  font-size: var(--fs-14);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.linkbtn:hover {
+  color: var(--focus);
+}
+
+/* ==========================================================================
+   Split / merge flow — legs + centre stem
+   ========================================================================== */
+
+.splitflow {
+  position: relative;
+  display: flex;
+  margin: 20px 0 8px;
+}
+
+.splitflow__stem {
+  position: absolute;
+  top: 8%;
+  bottom: 8%;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-0.5px);
+  background: linear-gradient(180deg, var(--price) 0%, var(--div) 100%);
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+}
+
+.splitflow--anim .splitflow__stem {
+  opacity: 1;
+}
+
+.splitflow__legs {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.splitflow--anim .splitflow__legs > :first-child {
+  transform: translateX(-16px);
+}
+
+.splitflow--anim .splitflow__legs > :last-child {
+  transform: translateX(16px);
+}
+
+.splitflow__legs > * {
+  flex: 1;
+  min-width: 0;
+  transition: transform 1.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splitflow__legs > * {
+    transition: none;
+  }
+}
+
+/* Merge flow — column with vertical stem down to the output row */
+.splitflow--merge {
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.splitflow__stem--merge {
+  position: static;
+  top: auto;
+  bottom: auto;
+  left: 50%;
+  width: 1px;
+  height: 18px;
+  transform: translateX(-0.5px);
+  opacity: 1;
+  transition: none;
+  flex: none;
+}
+
+.splitflow__out {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-control);
+  font-size: var(--fs-14);
+}
+
+/* ==========================================================================
+   Leg cards
+   ========================================================================== */
+
+.legcard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 16px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  overflow: hidden;
+  position: relative;
+}
+
+.legcard::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  border-radius: 3px 0 0 3px;
+}
+
+.legcard--price {
+  border-color: rgba(91, 140, 255, 0.35);
+  background: rgba(91, 140, 255, 0.06);
+}
+
+.legcard--price::before {
+  background: var(--price);
+}
+
+.legcard--div {
+  border-color: rgba(255, 181, 71, 0.35);
+  background: rgba(255, 181, 71, 0.06);
+}
+
+.legcard--div::before {
+  background: var(--div);
+}
+
+.legcard__title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.legcard__ticker {
+  font-size: var(--fs-20);
+  font-weight: 700;
+}
+
+.legcard--price .legcard__ticker {
+  color: var(--price);
+}
+
+.legcard--div .legcard__ticker {
+  color: var(--div);
+}
+
+.legcard__receive {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.legcard__receive strong {
+  color: var(--text);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.legcard__fair {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.legcard__tagline {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* ==========================================================================
+   Stepper (1 Approve → 2 Split)
+   ========================================================================== */
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stepper__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: var(--fs-14);
+}
+
+.stepper__item::after {
+  content: '';
+  width: 32px;
+  height: 1px;
+  margin: 0 12px;
+  background: var(--border);
+}
+
+.stepper__item:last-child::after {
+  display: none;
+}
+
+.stepper__item--active {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.stepper__item--done {
+  color: var(--pos);
+}
+
+/* ==========================================================================
+   Split / merge primary actions
+   ========================================================================== */
+
+.btn--twotone {
+  position: relative;
+  z-index: 0;
+  background: linear-gradient(90deg, var(--price) 0%, var(--price) 50%, var(--div) 50%, var(--div) 100%);
+  border: none;
+  color: #0a0b0e;
+}
+
+.btn--twotone:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.btn--merge {
+  background: var(--text);
+  color: #0a0b0e;
+  border-color: var(--text);
+}
+
+.btn--merge:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+.btn--sm {
+  min-height: 32px;
+  padding: 6px 12px;
+  font-size: var(--fs-12);
+  font-weight: 600;
+}
+
+.split__note {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ==========================================================================
+   What next
+   ========================================================================== */
+
+.split__whatnext {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.split__whatnext-links {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: var(--fs-14);
+}
+
+/* ==========================================================================
+   Starter pack
+   ========================================================================== */
+
+.starter {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.starter__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.starter--done {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+}
+
+.starter__ring {
+  display: inline-flex;
+  align-items: center;
+}
+
+.starter__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.starter__step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+}
+
+.starter__check {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.starter__check--done {
+  background: var(--pos);
+  border-color: var(--pos);
+  color: #0a0b0e;
+}
+
+.starter__label {
+  flex: 1;
+  font-size: var(--fs-14);
+}
+
+.starter__note {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius-control);
+  background: var(--warn-bg);
+}
+
+.starter__note a {
+  font-weight: 600;
+}
+
+.starter__explainer {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.chip--sunburst {
+  border-color: rgba(255, 181, 71, 0.55);
+  color: var(--div);
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   Ring progress
+   ========================================================================== */
+
+.ring {
+  transform: rotate(-90deg);
+}
+
+.ring__track {
+  stroke: var(--surface-2);
+}
+
+.ring__fill {
+  stroke: var(--pos);
+  transition: stroke-dashoffset 0.4s ease;
+}
+
+.dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.dot--stock {
+  background: var(--text);
+}
+
+/* ==========================================================================
+   How it works
+   ========================================================================== */
+
+.howitworks {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.howitworks__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: howitworks;
+}
+
+.howitworks__steps li {
+  counter-increment: howitworks;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: var(--fs-14);
+}
+
+.howitworks__steps li::before {
+  content: counter(howitworks);
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.howitworks__formula {
+  padding: 12px 14px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-control);
+  text-align: center;
+  color: var(--text);
+  font-size: 13px;
+}
+
+/* ==========================================================================
+   Series details
+   ========================================================================== */
+
+.series {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.series__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 16px;
+  margin: 0;
+}
+
+.series__grid dt {
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.series__grid dd {
+  margin: 0;
+  font-size: var(--fs-14);
+}
+
+.series__matures {
+  font-weight: 700;
+}
+
+.series__date {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+/* ==========================================================================
+   Risk box
+   ========================================================================== */
+
+.risk-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-color: rgba(255, 107, 107, 0.35);
+}
+
+.risk-box p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.risk-box__link {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   Skeleton (loading starter card)
+   ========================================================================== */
+
+.skeleton {
+  display: block;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--surface-2) 25%, #242935 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-sweep 1.4s ease-in-out infinite;
+}
+
+@keyframes skeleton-sweep {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
