@@ -74,8 +74,10 @@
 
 /* ==========================================================================
    Preview — the 6s split loop (ui_spec.md §3)
-   The stock card is two clipped halves; when they slide apart each half turns
-   into its leg card and the split line appears between them.
+   One white-ish stock card before the split; when the two halves slide apart
+   each half turns into its leg card and the 1px gradient split line appears
+   between them. Ticker row (mono, muted) above a large nowrap price row,
+   24px card padding, 8-12px gaps, no mid-word wrapping.
    ========================================================================== */
 
 .landing__preview {
@@ -94,7 +96,7 @@
 }
 
 .pv__card {
-  width: 320px;
+  width: min(320px, 100%);
   height: 132px;
   position: relative;
   display: flex;
@@ -106,8 +108,9 @@
   width: 50%;
   height: 100%;
   overflow: hidden;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  padding: 24px;
+  background: rgba(236, 238, 243, 0.1);
+  border: 1px solid rgba(236, 238, 243, 0.14);
   will-change: transform, background, border-radius;
 }
 
@@ -129,64 +132,89 @@
     pvBorderR 6s ease-in-out infinite;
 }
 
-.pv__stack {
+/* Whole stock (before the split) — one centered vertical stack over the card */
+.pv__stock {
   position: absolute;
   top: 0;
-  height: 100%;
-  width: 200%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.pv__half--l .pv__stack {
   left: 0;
-}
-
-.pv__half--r .pv__stack {
-  left: -100%;
-}
-
-.pv__stock {
-  font-family: var(--mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text);
-  animation: pvStockFade 6s ease-in-out infinite;
-}
-
-.pv__legwrap {
-  position: absolute;
-  inset: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
   text-align: center;
+  pointer-events: none;
+  will-change: opacity;
+  animation: pvStockFade 6s ease-in-out infinite;
+}
+
+.pv__ticker {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
   font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-weight: 500;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.pv__price {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+/* Leg card content — one centered vertical stack per half */
+.pv__leg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+  will-change: opacity;
   animation: pvLegFade 6s ease-in-out infinite;
 }
 
-.pv__leg-price {
+.pv__label {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.pv__value {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
   font-size: 22px;
-  text-transform: none;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.pv__value--price {
   color: var(--price);
 }
 
-.pv__leg-div {
-  font-family: var(--mono);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  font-size: 22px;
-  text-transform: none;
+.pv__value--div {
   color: var(--div);
 }
 
@@ -197,6 +225,7 @@
   left: 50%;
   width: 1px;
   transform: translateX(-0.5px);
+  z-index: 2;
   background: linear-gradient(180deg, var(--price) 0%, var(--div) 100%);
   opacity: 0;
   animation: pvLine 6s ease-in-out infinite;
@@ -213,13 +242,13 @@
 }
 
 @keyframes pvLBg {
-  0%, 23%, 83.5%, 100% { background: var(--surface); }
-  30.5%, 76% { background: rgba(91, 140, 255, 0.12); }
+  0%, 23%, 83.5%, 100% { background: rgba(236, 238, 243, 0.1); }
+  30.5%, 76% { background: rgba(91, 140, 255, 0.14); }
 }
 
 @keyframes pvRBg {
-  0%, 23%, 83.5%, 100% { background: var(--surface); }
-  30.5%, 76% { background: rgba(255, 181, 71, 0.12); }
+  0%, 23%, 83.5%, 100% { background: rgba(236, 238, 243, 0.1); }
+  30.5%, 76% { background: rgba(255, 181, 71, 0.14); }
 }
 
 @keyframes pvBorderL {

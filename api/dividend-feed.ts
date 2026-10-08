@@ -25,7 +25,7 @@ function refPriceFor(seq: number): number {
   for (let i = 0; i < steps; i += 1) {
     state = (Math.imul(state, 1664525) + 1013904223) >>> 0
     const jitter = ((state >>> 24) % 201 - 100) / 400
-    price = Math.min(130, Math.max(85, price + jitter))
+    price = Math.min(105, Math.max(95, price + jitter))
   }
   return price
 }

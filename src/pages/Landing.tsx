@@ -122,23 +122,21 @@ function Preview() {
     <div className="landing__preview" aria-hidden>
       <div className="pv">
         <div className="pv__card">
+          <div className="pv__stock">
+            <span className="pv__ticker">mACME</span>
+            <strong className="pv__price">$100.00</strong>
+          </div>
           <div className="pv__half pv__half--l">
-            <div className="pv__inner">
-              <span className="pv__stock">mACME · $100.00</span>
-              <span className="pv__leg">
-                Price leg
-                <b className="pv__leg-price">$94.00</b>
-              </span>
+            <div className="pv__leg">
+              <span className="pv__label">Price leg</span>
+              <strong className="pv__value pv__value--price">$94.00</strong>
             </div>
           </div>
           <div className="pv__splitline" />
           <div className="pv__half pv__half--r">
-            <div className="pv__inner">
-              <span className="pv__stock">mACME · $100.00</span>
-              <span className="pv__leg">
-                Dividend leg
-                <b className="pv__leg-div">$6.00</b>
-              </span>
+            <div className="pv__leg">
+              <span className="pv__label">Dividend leg</span>
+              <strong className="pv__value pv__value--div">$6.00</strong>
             </div>
           </div>
         </div>
