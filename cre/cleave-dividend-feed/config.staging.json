@@ -1,0 +1,11 @@
+{
+  "schedule": "*/30 * * * * *",
+  "apiUrl": "https://cleave-web.vercel.app/api/dividend-feed",
+  "evms": [
+    {
+      "oracleAddress": "0x1f6ce6F6C0f24d7b93A56982988e7F274860e8Cc",
+      "chainName": "monad-testnet",
+      "gasLimit": "500000"
+    }
+  ]
+}

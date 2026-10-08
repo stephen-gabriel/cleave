@@ -1,0 +1,7 @@
+node_modules
+.env
+.env.*
+!.env.example
+dist
+.cre_build_tmp.js
+*.tsbuildinfo
