@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { createWalletClient, http } from 'viem'
+import { createWalletClient, formatEther, formatGwei, http } from 'viem'
 import type { Abi, Address } from 'viem'
 import { monadTestnet } from 'viem/chains'
 import { createAccount, signIn, publicClient, type PasskeyWallet } from './mera'
@@ -153,14 +153,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       chain: monadTestnet,
       transport: http(RPC_URL),
     })
-    const gasPrice = await publicClient.getGasPrice()
     // Fee cap is always the chain's current gas price × 1.2 — never a
     // hard-coded gwei value (a fixed cap drifts away from the live price and
-    // gasLimit × maxFeePerGas is what the node requires up front).
-    const maxFeePerGas = (gasPrice * 120n) / 100n
-
+    // gasLimit × maxFeePerGas is what the node requires up front). A failure
+    // while reading the price must also be logged, so it stays inside the
+    // same diagnostics block as a rejected write.
+    let gasPrice = 0n
+    let maxFeePerGas = 0n
     let hash: `0x${string}`
     try {
+      gasPrice = await publicClient.getGasPrice()
+      maxFeePerGas = (gasPrice * 120n) / 100n
+      console.info(
+        `[cleave:send] begin ${params.functionName} gas=${params.gas} gasPrice=${formatGwei(gasPrice)} gwei maxFeePerGas=${formatGwei(maxFeePerGas)} gwei required=${formatEther(params.gas * maxFeePerGas)} MON`,
+      )
       hash = await client.writeContract({
         address: params.to,
         abi: params.abi,
@@ -189,7 +195,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       throw error
     }
 
+    console.info(`[cleave:send] submitted ${hash} — waiting for receipt`)
     const receipt = await publicClient.waitForTransactionReceipt({ hash })
+    console.info(`[cleave:send] mined ${hash} status=${receipt.status}`)
     if (receipt.status === 'reverted') throw new RevertedTransactionError(hash)
     const seconds = finish()
     if (typeof params.usdValue === 'number' && params.usdValue > 0) {

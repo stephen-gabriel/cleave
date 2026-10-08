@@ -91,6 +91,42 @@ export default function Split() {
     !!session.wallet && !loading && !matured && mergeMax !== null && amount > 0n && amount <= mergeMax && !busy
   const elapsed = useElapsedSeconds(busy)
 
+  const signedIn = session.wallet !== null
+
+  // Diagnostic trail: one line per state change so a dead button or a skipped
+  // click always leaves evidence (silence is the failure mode we can't debug).
+  useEffect(() => {
+    console.info('[cleave:split] state', {
+      signedIn,
+      tab,
+      loading,
+      offline,
+      matured,
+      busy,
+      canSplit,
+      amount: amount.toString(),
+      exceedsBalance,
+      needsApprove,
+      monBalance: balanceText(monBalance),
+      stockBalance: balanceText(stockBalance),
+      allowance: balanceText(allowance),
+    })
+  }, [
+    signedIn,
+    tab,
+    loading,
+    offline,
+    matured,
+    busy,
+    canSplit,
+    amount,
+    exceedsBalance,
+    needsApprove,
+    monBalance,
+    stockBalance,
+    allowance,
+  ])
+
   const refresh = state.refresh
 
   const runDrip = useCallback(async () => {
@@ -128,7 +164,20 @@ export default function Split() {
   }, [busy, session, refresh])
 
   const runSplit = useCallback(async () => {
-    if (busy || amount <= 0n || session.wallet === null) return
+    console.info('[cleave:split] tapped', {
+      busy,
+      amount: amount.toString(),
+      signedIn: session.wallet !== null,
+      needsApprove,
+    })
+    if (busy || amount <= 0n || session.wallet === null) {
+      console.info('[cleave:split] ignored', {
+        busy,
+        amount: amount.toString(),
+        signedIn: session.wallet !== null,
+      })
+      return
+    }
     const value = amount
     setPhase(needsApprove ? 'approving' : 'splitting')
     try {
