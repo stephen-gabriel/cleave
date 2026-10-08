@@ -7,6 +7,7 @@ import { createAccount, signIn, publicClient, type PasskeyWallet } from './mera'
 import { RPC_URL } from '../chain/clients'
 import { ALLOWLIST } from '../chain/addresses'
 import { reportConfirmedTx, startTxTimer } from '../lib/timing'
+import { buildTxDiagnostics, rememberTxCause, txFailureLogLine } from './txFailure'
 
 export const SESSION_MS = 15 * 60 * 1000
 export const SESSION_CAP_USD = 5000
@@ -153,16 +154,40 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       transport: http(RPC_URL),
     })
     const gasPrice = await publicClient.getGasPrice()
+    // Fee cap is always the chain's current gas price × 1.2 — never a
+    // hard-coded gwei value (a fixed cap drifts away from the live price and
+    // gasLimit × maxFeePerGas is what the node requires up front).
     const maxFeePerGas = (gasPrice * 120n) / 100n
 
-    const hash = await client.writeContract({
-      address: params.to,
-      abi: params.abi,
-      functionName: params.functionName,
-      args: params.args,
-      gas: params.gas,
-      maxFeePerGas,
-    })
+    let hash: `0x${string}`
+    try {
+      hash = await client.writeContract({
+        address: params.to,
+        abi: params.abi,
+        functionName: params.functionName,
+        args: params.args,
+        gas: params.gas,
+        maxFeePerGas,
+      })
+    } catch (error) {
+      let monBalance: bigint | null = null
+      try {
+        monBalance = await publicClient.getBalance({ address: opened.account.address })
+      } catch {
+        monBalance = null
+      }
+      const diagnostics = buildTxDiagnostics({
+        address: opened.account.address,
+        gasLimit: params.gas,
+        gasPrice,
+        maxFeePerGas,
+        monBalance,
+        error,
+      })
+      console.error(txFailureLogLine(diagnostics), diagnostics)
+      rememberTxCause(error, diagnostics.cause)
+      throw error
+    }
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash })
     if (receipt.status === 'reverted') throw new RevertedTransactionError(hash)

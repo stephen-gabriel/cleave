@@ -6,6 +6,7 @@ import { GAS_LIMITS } from '../chain/gas'
 import { MOCK_STOCK_ABI, MOCK_USD_ABI, SPLITTER_ABI } from '../chain/abis'
 import { useChainState } from '../chain/multicall'
 import { useSession, isRevertedTransactionError } from '../wallet/session'
+import { isOutOfFeeCredit } from '../wallet/txFailure'
 import type { SendResult } from '../wallet/session'
 import { ConfirmationChip } from '../ui/ConfirmationChip'
 import { toastError } from '../ui/toast'
@@ -92,120 +93,6 @@ export default function Split() {
 
   const refresh = state.refresh
 
-  const runSplit = useCallback(async () => {
-    if (busy || amount <= 0n || session.wallet === null) return
-    const value = amount
-    setPhase(needsApprove ? 'approving' : 'splitting')
-    try {
-      if (needsApprove) {
-        const approveResult = await session.send({
-          to: CHAIN.stock,
-          abi: MOCK_STOCK_ABI,
-          functionName: 'approve',
-          args: [CHAIN.splitter, maxUint256],
-          gas: GAS_LIMITS.approve,
-        })
-        setApprove(approveResult)
-        setPhase('splitting')
-      }
-      const result = await session.send({
-        to: CHAIN.splitter,
-        abi: SPLITTER_ABI,
-        functionName: 'split',
-        args: [value],
-        gas: GAS_LIMITS.split,
-        usdValue: amountUsd ?? 0,
-      })
-      setLast({ result, label: `Split ${formatEther(value)} mACME` })
-      setAnimating(true)
-      timers.current.push(window.setTimeout(() => setAnimating(false), 1500))
-      refresh()
-    } catch (error) {
-      handleTxError(error)
-    } finally {
-      setPhase('idle')
-    }
-  }, [busy, amount, needsApprove, amountUsd, session, refresh])
-
-  const runMerge = useCallback(async () => {
-    if (busy || amount <= 0n || session.wallet === null) return
-    const value = amount
-    setPhase('merging')
-    try {
-      const result = await session.send({
-        to: CHAIN.splitter,
-        abi: SPLITTER_ABI,
-        functionName: 'merge',
-        args: [value],
-        gas: GAS_LIMITS.merge,
-      })
-      setLast({ result, label: `Merge ${formatEther(value)} legs` })
-      refresh()
-    } catch (error) {
-      handleTxError(error)
-    } finally {
-      setPhase('idle')
-    }
-  }, [busy, amount, session, refresh])
-
-  const runRedeem = useCallback(async () => {
-    if (busy || priceBalance === null || priceBalance === 0n || session.wallet === null) return
-    const value = priceBalance
-    setPhase('redeeming')
-    try {
-      const result = await session.send({
-        to: CHAIN.splitter,
-        abi: SPLITTER_ABI,
-        functionName: 'redeem',
-        args: [value],
-        gas: GAS_LIMITS.merge,
-      })
-      setLast({ result, label: `Redeemed ${formatEther(value)} mACME` })
-      setAmountStr(DEFAULT_AMOUNT)
-      refresh()
-    } catch (error) {
-      handleTxError(error)
-    } finally {
-      setPhase('idle')
-    }
-  }, [busy, priceBalance, session, refresh])
-
-  const runFaucet = useCallback(
-    async (kind: 'macme' | 'musd') => {
-      if (busy || session.wallet === null) return
-      setPhase(kind)
-      try {
-        const result = await session.send(
-          kind === 'macme'
-            ? {
-                to: CHAIN.stock,
-                abi: MOCK_STOCK_ABI,
-                functionName: 'faucet',
-                args: [],
-                gas: GAS_LIMITS.faucet,
-              }
-            : {
-                to: CHAIN.usd,
-                abi: MOCK_USD_ABI,
-                functionName: 'faucet',
-                args: [],
-                gas: GAS_LIMITS.faucet,
-              },
-        )
-        setLast({
-          result,
-          label: kind === 'macme' ? '1,000 mACME claimed' : '10,000 mUSD claimed',
-        })
-        refresh()
-      } catch (error) {
-        handleTxError(error)
-      } finally {
-        setPhase('idle')
-      }
-    },
-    [busy, session, refresh],
-  )
-
   const runDrip = useCallback(async () => {
     if (busy || session.wallet === null) return
     setPhase('drip')
@@ -239,6 +126,120 @@ export default function Split() {
       setPhase('idle')
     }
   }, [busy, session, refresh])
+
+  const runSplit = useCallback(async () => {
+    if (busy || amount <= 0n || session.wallet === null) return
+    const value = amount
+    setPhase(needsApprove ? 'approving' : 'splitting')
+    try {
+      if (needsApprove) {
+        const approveResult = await session.send({
+          to: CHAIN.stock,
+          abi: MOCK_STOCK_ABI,
+          functionName: 'approve',
+          args: [CHAIN.splitter, maxUint256],
+          gas: GAS_LIMITS.approve,
+        })
+        setApprove(approveResult)
+        setPhase('splitting')
+      }
+      const result = await session.send({
+        to: CHAIN.splitter,
+        abi: SPLITTER_ABI,
+        functionName: 'split',
+        args: [value],
+        gas: GAS_LIMITS.split,
+        usdValue: amountUsd ?? 0,
+      })
+      setLast({ result, label: `Split ${formatEther(value)} mACME` })
+      setAnimating(true)
+      timers.current.push(window.setTimeout(() => setAnimating(false), 1500))
+      refresh()
+    } catch (error) {
+      handleTxError(error, { onFeeCredit: runDrip })
+    } finally {
+      setPhase('idle')
+    }
+  }, [busy, amount, needsApprove, amountUsd, session, refresh, runDrip])
+
+  const runMerge = useCallback(async () => {
+    if (busy || amount <= 0n || session.wallet === null) return
+    const value = amount
+    setPhase('merging')
+    try {
+      const result = await session.send({
+        to: CHAIN.splitter,
+        abi: SPLITTER_ABI,
+        functionName: 'merge',
+        args: [value],
+        gas: GAS_LIMITS.merge,
+      })
+      setLast({ result, label: `Merge ${formatEther(value)} legs` })
+      refresh()
+    } catch (error) {
+      handleTxError(error, { onFeeCredit: runDrip })
+    } finally {
+      setPhase('idle')
+    }
+  }, [busy, amount, session, refresh, runDrip])
+
+  const runRedeem = useCallback(async () => {
+    if (busy || priceBalance === null || priceBalance === 0n || session.wallet === null) return
+    const value = priceBalance
+    setPhase('redeeming')
+    try {
+      const result = await session.send({
+        to: CHAIN.splitter,
+        abi: SPLITTER_ABI,
+        functionName: 'redeem',
+        args: [value],
+        gas: GAS_LIMITS.merge,
+      })
+      setLast({ result, label: `Redeemed ${formatEther(value)} mACME` })
+      setAmountStr(DEFAULT_AMOUNT)
+      refresh()
+    } catch (error) {
+      handleTxError(error, { onFeeCredit: runDrip })
+    } finally {
+      setPhase('idle')
+    }
+  }, [busy, priceBalance, session, refresh, runDrip])
+
+  const runFaucet = useCallback(
+    async (kind: 'macme' | 'musd') => {
+      if (busy || session.wallet === null) return
+      setPhase(kind)
+      try {
+        const result = await session.send(
+          kind === 'macme'
+            ? {
+                to: CHAIN.stock,
+                abi: MOCK_STOCK_ABI,
+                functionName: 'faucet',
+                args: [],
+                gas: GAS_LIMITS.faucet,
+              }
+            : {
+                to: CHAIN.usd,
+                abi: MOCK_USD_ABI,
+                functionName: 'faucet',
+                args: [],
+                gas: GAS_LIMITS.faucet,
+              },
+        )
+        setLast({
+          result,
+          label: kind === 'macme' ? '1,000 mACME claimed' : '10,000 mUSD claimed',
+        })
+        refresh()
+      } catch (error) {
+        handleTxError(error, { onFeeCredit: runDrip })
+      } finally {
+        setPhase('idle')
+      }
+    },
+    [busy, session, refresh, runDrip],
+  )
 
   const stepsDone: [boolean, boolean, boolean] = [
     monBalance !== null && monBalance >= MIN_MON,
@@ -820,14 +821,10 @@ function StarterPack({
       {dripNote !== null && (
         <p className="starter__note">
           {dripNote}
-          {/fee credit|faucet/i.test(dripNote) && (
-            <>
-              {' '}
-              <a href={FAUCET_URL} target="_blank" rel="noreferrer">
-                Use the Monad faucet &#8599;
-              </a>
-            </>
-          )}
+          {' '}
+          <a href={FAUCET_URL} target="_blank" rel="noreferrer">
+            Use the Monad faucet &#8599;
+          </a>
         </p>
       )}
       <p className="starter__explainer">Test tokens only. They have no value.</p>
@@ -985,7 +982,7 @@ function humanizeError(error: unknown): string {
   return describeError(error)
 }
 
-function handleTxError(error: unknown) {
+function handleTxError(error: unknown, hooks: { onFeeCredit?: () => void } = {}) {
   if (isRevertedTransactionError(error)) {
     toastError('Something went wrong \u2014 view details', {
       actions: [
@@ -993,6 +990,17 @@ function handleTxError(error: unknown) {
           label: 'View details',
           onClick: () => window.open(explorerTxUrl(error.hash), '_blank', 'noopener'),
         },
+      ],
+    })
+    return
+  }
+  if (isOutOfFeeCredit(error)) {
+    // ui_spec §15: raw "not enough balance for gas" becomes plain language
+    // with a way out — add fee credit, or use the faucet.
+    toastError("You're out of network fee credit.", {
+      actions: [
+        ...(hooks.onFeeCredit ? [{ label: 'Add fee credit', onClick: hooks.onFeeCredit }] : []),
+        { label: 'Use the faucet', onClick: () => window.open(FAUCET_URL, '_blank', 'noopener') },
       ],
     })
     return

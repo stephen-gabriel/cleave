@@ -497,6 +497,32 @@ h3 {
 }
 
 /* ==========================================================================
+   Welcome-back bar — ui_spec §10 (reloaded with no session: one passkey tap)
+   ========================================================================== */
+
+.welcomebar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px var(--space-page);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-14);
+}
+
+.welcomebar__text {
+  color: var(--text);
+}
+
+.welcomebar__note {
+  color: var(--muted);
+  font-size: var(--fs-12);
+  text-align: center;
+}
+
+/* ==========================================================================
    Toaster
    ========================================================================== */
 

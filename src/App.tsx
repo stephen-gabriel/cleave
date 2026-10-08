@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { SessionProvider, useSession } from './wallet/session'
-import { publicClient } from './wallet/mera'
+import { publicClient, describeError } from './wallet/mera'
 import { usePath, matchPath, navigate, Link } from './router'
 import { Logo } from './ui/Logo'
 import { AccountChip } from './ui/AccountChip'
@@ -63,6 +63,21 @@ function AppShell() {
   const webauthnAvailable =
     typeof window !== 'undefined' && typeof window.PublicKeyCredential !== 'undefined'
 
+  const [welcomeBusy, setWelcomeBusy] = useState(false)
+  const [welcomeError, setWelcomeError] = useState<string | null>(null)
+
+  const signInFromBar = async () => {
+    setWelcomeBusy(true)
+    setWelcomeError(null)
+    try {
+      await session.signIn()
+    } catch (cause) {
+      setWelcomeError(describeError(cause))
+    } finally {
+      setWelcomeBusy(false)
+    }
+  }
+
   return (
     <div className="shell">
       {!secureContext && (
@@ -92,6 +107,21 @@ function AppShell() {
           )}
         </div>
       </header>
+
+      {!signedIn && (
+        <div className="welcomebar" role="status">
+          <span className="welcomebar__text">Welcome back —</span>
+          <button
+            type="button"
+            className="btn btn--primary btn--sm"
+            disabled={welcomeBusy}
+            onClick={() => void signInFromBar()}
+          >
+            {welcomeBusy ? 'Waiting for authenticator…' : 'Sign in'}
+          </button>
+          {welcomeError !== null && <span className="welcomebar__note">{welcomeError}</span>}
+        </div>
+      )}
 
       <nav className="tabs" aria-label="Primary">
         {TABS.map((tab) => (
