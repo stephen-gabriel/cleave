@@ -1,5 +1,5 @@
 import type { TransactionRequest } from 'viem'
-import { publicClient } from './wallet'
+import { publicClient } from './wallet/mera'
 
 /**
  * Monad's RPC has been observed returning an inflated `eth_maxFeePerGas` (182.4

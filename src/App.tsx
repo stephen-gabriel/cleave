@@ -1,486 +1,291 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createWalletClient, formatEther, formatUnits, http, parseEther } from 'viem'
-import type { Hash } from 'viem'
-import { monadTestnet } from 'viem/chains'
-import {
-  DEPLOYER_ADDRESS,
-  EVM_ACCOUNT_PATH,
-  FUND_DEPLOYER_AMOUNT_MON,
-  MINT_GAS_LIMIT,
-  MOCK_STOCK_ABI,
-  MOCK_STOCK_ADDRESS,
-  SEND_AMOUNT_MON,
-  TRANSFER_GAS_LIMIT,
-} from './config'
-import { requiredBalance, resolveFees, sendWithFees, type Fees } from './fees'
-import {
-  connect,
-  describeError,
-  explorerTxUrl,
-  FAUCET_URL,
-  forgetCredential,
-  loadCredential,
-  publicClient,
-  type ConnectMode,
-  type PasskeyWallet,
-} from './wallet'
-import './App.css'
+import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
+import { SessionProvider, useSession } from './wallet/session'
+import { publicClient } from './wallet/mera'
+import { usePath, matchPath, navigate, Link } from './router'
+import { Logo } from './ui/Logo'
+import { AccountChip } from './ui/AccountChip'
+import { SignInPrompt } from './ui/SignInPrompt'
+import { Toaster, toastInfo } from './ui/toast'
+import { onTxEvent } from './lib/timing'
+import Landing from './pages/Landing'
+import Split from './pages/Split'
+import Trade from './pages/Trade'
+import Dividends from './pages/Dividends'
+import Portfolio from './pages/Portfolio'
+import Market from './pages/Market'
+import About from './pages/About'
+import Judges from './pages/Judges'
 
-/**
- * Used only for the first paint, before the live baseFee is known. Matches the
- * 100 gwei baseFee and 2 gwei priority fee observed on Monad testnet.
- */
-const FALLBACK_FEES: Fees = {
-  maxFeePerGas: 200_000_000_000n,
-  maxPriorityFeePerGas: 2_000_000_000n,
-  baseFeePerGas: 100_000_000_000n,
-}
+const PILL_TITLE = 'Mock tokens only. No real money, no real equity.'
 
-type Action = 'connect' | 'send' | 'fund' | 'mint'
+type Tab = { path: string; label: string; match: (path: string) => boolean; icon: ReactNode }
 
-type Result = {
-  label: string
-  hash: Hash
-  gasUsed: bigint
-  status: 'success' | 'reverted'
-}
+const TABS: Tab[] = [
+  { path: '/split', label: 'Split', match: (p) => p === '/split', icon: <SplitIcon /> },
+  { path: '/trade/dividend', label: 'Trade', match: (p) => p.startsWith('/trade'), icon: <TradeIcon /> },
+  { path: '/dividends', label: 'Dividends', match: (p) => p === '/dividends', icon: <DividendIcon /> },
+  { path: '/portfolio', label: 'Portfolio', match: (p) => p === '/portfolio', icon: <PortfolioIcon /> },
+  { path: '/market', label: 'Market', match: (p) => p === '/market', icon: <MarketIcon /> },
+]
 
-function App() {
-  const [hasPasskey, setHasPasskey] = useState(() => loadCredential() !== undefined)
-  const [wallet, setWallet] = useState<PasskeyWallet | null>(null)
-  const [balance, setBalance] = useState<bigint | null>(null)
-  const [stock, setStock] = useState<{ balance: bigint; mintAmount: bigint } | null>(null)
-  const [action, setAction] = useState<Action | null>(null)
-  const [result, setResult] = useState<Result | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [fees, setFees] = useState<Fees | null>(null)
+function AppShell() {
+  const path = usePath()
+  const session = useSession()
+  const signedIn = session.wallet !== null
+  const rpcOk = useRpcHealth()
+  const [welcome, setWelcome] = useState(false)
+  const createdRef = useRef(false)
 
-  const walletRef = useRef<PasskeyWallet | null>(null)
-  const busy = action !== null
+  useEffect(() => {
+    if (session.created && !createdRef.current) setWelcome(true)
+    createdRef.current = session.created
+  }, [session.created])
 
-  const dispose = useCallback(() => {
-    walletRef.current?.session.end()
-    walletRef.current = null
+  useEffect(() => {
+    if (!welcome) return
+    const timer = window.setTimeout(() => {
+      setWelcome(false)
+      navigate('/split', { replace: true })
+    }, 1200)
+    return () => window.clearTimeout(timer)
+  }, [welcome])
+
+  useEffect(() => {
+    return onTxEvent((event) => {
+      if (event.type === 'first') {
+        toastInfo(`⚡ First transaction in ${event.seconds.toFixed(1)} s`)
+      }
+    })
   }, [])
 
-  useEffect(() => dispose, [dispose])
-
-  const walletClient = useMemo(
-    () =>
-      wallet === null
-        ? null
-        : createWalletClient({
-            account: wallet.account,
-            chain: monadTestnet,
-            transport: http(),
-          }),
-    [wallet],
-  )
-
-  const readStock = useCallback(async (holder: `0x${string}`) => {
-    if (MOCK_STOCK_ADDRESS === undefined) {
-      setStock(null)
-      return
-    }
-    try {
-      const [tokenBalance, mintAmount] = await Promise.all([
-        publicClient.readContract({
-          address: MOCK_STOCK_ADDRESS as `0x${string}`,
-          abi: MOCK_STOCK_ABI,
-          functionName: 'balanceOf',
-          args: [holder],
-        }) as Promise<bigint>,
-        publicClient.readContract({
-          address: MOCK_STOCK_ADDRESS as `0x${string}`,
-          abi: MOCK_STOCK_ABI,
-          functionName: 'MINT_AMOUNT',
-        }) as Promise<bigint>,
-      ])
-      setStock({ balance: tokenBalance, mintAmount })
-    } catch {
-      setStock(null)
-    }
-  }, [])
-
-  const refresh = useCallback(
-    async (holder: `0x${string}`) => {
-      setBalance(await publicClient.getBalance({ address: holder }))
-      await readStock(holder)
-      try {
-        setFees(await resolveFees())
-      } catch {
-        // Keep the last known fees; sendWithFees re-resolves before every send.
-      }
-    },
-    [readStock],
-  )
-
-  const run = useCallback(
-    async (which: Action, label: string, send: () => Promise<Hash>) => {
-      const holder = walletRef.current?.account.address
-      if (holder === undefined) return
-      setAction(which)
-      setError(null)
-      setResult(null)
-      try {
-        const hash = await send()
-        const receipt = await publicClient.waitForTransactionReceipt({ hash })
-        setResult({ label, hash, gasUsed: receipt.gasUsed, status: receipt.status })
-        await refresh(holder)
-      } catch (cause) {
-        setError(describeError(cause))
-      } finally {
-        setAction(null)
-      }
-    },
-    [refresh],
-  )
-
-  const onConnect = async (mode: ConnectMode) => {
-    setAction('connect')
-    setError(null)
-    try {
-      dispose()
-      const { wallet: opened, created } = await connect(window.location.hostname, mode)
-      walletRef.current = opened
-      setWallet(opened)
-      setResult(null)
-      setHasPasskey(loadCredential() !== undefined)
-      await refresh(opened.account.address)
-      if (created) {
-        setError(
-          'New passkey created. This is a separate account with its own balance, not your previous one.',
-        )
-      }
-    } catch (cause) {
-      setError(describeError(cause))
-    } finally {
-      setAction(null)
-    }
-  }
-
-  const onSendToSelf = () => {
-    const client = walletClient
-    const me = wallet?.account.address
-    if (client === null || me === undefined) return
-    return run('send', `Sent ${SEND_AMOUNT_MON} MON to self`, () =>
-      sendWithFees(
-        (fees) =>
-          client.sendTransaction({
-            to: me,
-            value: parseEther(SEND_AMOUNT_MON),
-            gas: TRANSFER_GAS_LIMIT,
-            ...fees,
-          }),
-        TRANSFER_GAS_LIMIT,
-        balance ?? 0n,
-      ),
-    )
-  }
-
-  const onFundDeployer = () => {
-    const client = walletClient
-    const deployer = DEPLOYER_ADDRESS
-    if (client === null || deployer === undefined) return
-    return run('fund', `Funded deployer with ${FUND_DEPLOYER_AMOUNT_MON} MON`, () =>
-      sendWithFees(
-        (fees) =>
-          client.sendTransaction({
-            to: deployer,
-            value: parseEther(FUND_DEPLOYER_AMOUNT_MON),
-            gas: TRANSFER_GAS_LIMIT,
-            ...fees,
-          }),
-        TRANSFER_GAS_LIMIT,
-        balance ?? 0n,
-      ),
-    )
-  }
-
-  const onMint = () => {
-    const client = walletClient
-    const token = MOCK_STOCK_ADDRESS
-    if (client === null || token === undefined) return
-    return run('mint', 'Minted MockStock', () =>
-      sendWithFees(
-        (fees) =>
-          client.writeContract({
-            address: token,
-            abi: MOCK_STOCK_ABI,
-            functionName: 'faucet',
-            gas: MINT_GAS_LIMIT,
-            ...fees,
-          }),
-        MINT_GAS_LIMIT,
-        balance ?? 0n,
-      ),
-    )
-  }
-
-  const onLock = () => {
-    dispose()
-    setWallet(null)
-    setBalance(null)
-    setStock(null)
-    setResult(null)
-  }
-
-  const onReset = () => {
-    dispose()
-    forgetCredential()
-    setHasPasskey(false)
-    setWallet(null)
-    setBalance(null)
-    setStock(null)
-    setResult(null)
-    setError(
-      'Cached credential forgotten. Sign in again to pick the same passkey back up; no funds are affected.',
-    )
-  }
-
-  const secureContext = window.isSecureContext
-  const webauthnAvailable = typeof window.PublicKeyCredential !== 'undefined'
-  const mon = balance === null ? null : Number(formatEther(balance)).toFixed(4)
-  // Mirrors the node's own upfront check so the button reflects real affordability
-// instead of letting a thin account discover the problem through an RPC error.
-const mintRequirementWei =
-    fees === null ? requiredBalance(MINT_GAS_LIMIT, FALLBACK_FEES) : requiredBalance(MINT_GAS_LIMIT, fees)
-  const mintRequirement = formatEther(mintRequirementWei)
-  const canAffordMint = balance === null || balance >= mintRequirementWei
+  const secureContext = typeof window !== 'undefined' && window.isSecureContext
+  const webauthnAvailable =
+    typeof window !== 'undefined' && typeof window.PublicKeyCredential !== 'undefined'
 
   return (
-    <main className="app">
-      <header className="head">
-        <h1>Passkey wallet on Monad</h1>
-        <p className="sub">
-          @category-labs/mera derives an EVM key from a WebAuthn PRF output. viem signs
-          and broadcasts; the private key never leaves the signing session.
-        </p>
-      </header>
-
+    <div className="shell">
       {!secureContext && (
-        <p className="banner banner--warn">
-          WebAuthn needs a secure context. Serve this app over HTTPS, or use localhost.
-        </p>
+        <div className="status-strip">Passkeys need an HTTPS context — serve over HTTPS or localhost.</div>
       )}
       {secureContext && !webauthnAvailable && (
-        <p className="banner banner--warn">
-          This browser does not expose the WebAuthn credential API.
-        </p>
+        <div className="status-strip">This browser does not expose WebAuthn. Try Chrome or Safari.</div>
+      )}
+      {!rpcOk && <div className="status-strip">Live data delayed — showing last known values.</div>}
+
+      <header className="topbar">
+        <Link className="topbar__brand" to="/" aria-label="Cleave home">
+          <Logo size={30} />
+          <span className="topbar__wordmark">cleave</span>
+        </Link>
+        <div className="topbar__spacer" />
+        <div className="topbar__right">
+          <span className="chip pill--simulated" title={PILL_TITLE}>
+            SIMULATED · MONAD TESTNET
+          </span>
+          {signedIn ? (
+            <AccountChip />
+          ) : (
+            <Link className="btn btn--primary" to="/">
+              Sign in
+            </Link>
+          )}
+        </div>
+      </header>
+
+      <nav className="tabs" aria-label="Primary">
+        {TABS.map((tab) => (
+          <Link
+            key={tab.path}
+            className={`tabs__link${tab.match(path) ? ' tabs__link--active' : ''}`}
+            to={tab.path}
+            aria-current={tab.match(path) ? 'page' : undefined}
+          >
+            {tab.label}
+          </Link>
+        ))}
+      </nav>
+
+      <main className="main">
+        <Page path={path} signedIn={signedIn} />
+      </main>
+
+      <nav className="bottombar" aria-label="Primary">
+        {TABS.map((tab) => (
+          <Link
+            key={tab.path}
+            className={`bottombar__link${tab.match(path) ? ' bottombar__link--active' : ''}`}
+            to={tab.path}
+            aria-current={tab.match(path) ? 'page' : undefined}
+          >
+            {tab.icon}
+            <span>{tab.label}</span>
+          </Link>
+        ))}
+      </nav>
+
+      <footer className="footer">
+        <span>Cleave is a hackathon demo on Monad Testnet.</span>
+        <span className="footer__links">
+          <Link to="/about">About &amp; risks</Link>
+          <Link to="/judges">Judges</Link>
+          <a href="https://github.com/stephen-gabriel/cleave" target="_blank" rel="noreferrer">
+            GitHub
+          </a>
+        </span>
+      </footer>
+
+      <Toaster />
+
+      {welcome && (
+        <div className="modal-backdrop overlay-welcome">
+          <div className="overlay-welcome__inner">
+            <div className="overlay-welcome__check" aria-hidden>
+              ✓
+            </div>
+            <p>You&apos;re in.</p>
+          </div>
+        </div>
       )}
 
-      {wallet === null ? (
-        <section className="card">
-          <h2>Sign in</h2>
-          <p className="muted">
-            Select the passkey you registered for this site and its PRF output
-            re-derives the same account.
-          </p>
-          <dl className="facts">
-            <div>
-              <dt>Relying party</dt>
-              <dd>{window.location.hostname}</dd>
-            </div>
-            <div>
-              <dt>Chain</dt>
-              <dd>
-                {monadTestnet.name} · {monadTestnet.id}
-              </dd>
-            </div>
-            <div>
-              <dt>Derivation path</dt>
-              <dd>{EVM_ACCOUNT_PATH}</dd>
-            </div>
-          </dl>
-          <button
-            type="button"
-            onClick={() => void onConnect('discoverable')}
-            disabled={busy || !secureContext || !webauthnAvailable}
-          >
-            {action === 'connect' ? 'Waiting for authenticator…' : 'Sign in with existing passkey'}
-          </button>
-
-          {/*
-            Discovery does not depend on localStorage: getPasskeyPrfOutput with no
-            allowCredentials lets the authenticator offer every credential it holds
-            for this rpId, and the PRF output re-derives the same account. Clearing
-            site data therefore costs nothing. Creating a new passkey is a separate
-            account with its own balance, so it sits behind a secondary button.
-          */}
-          <p className="muted">
-            Finds this account from the passkey itself, so clearing site data does not
-            strand funds.
-          </p>
-
-          <button
-            type="button"
-            className="ghost"
-            onClick={() => void onConnect('create')}
-            disabled={busy || !secureContext || !webauthnAvailable}
-          >
-            Create a new passkey instead
-          </button>
-          <p className="muted">
-            This derives a different address with its own balance. Use it only if you
-            want a second account.
-          </p>
-
-          {hasPasskey && (
-            <button type="button" className="ghost" onClick={onReset}>
-              Forget cached credential
-            </button>
-          )}
-        </section>
-      ) : (
-        <>
-          <section className="card">
-            <h2>Account</h2>
-            <p className="label">Address</p>
-            <p className="address">{wallet.account.address}</p>
-
-            <dl className="facts">
-              <div>
-                <dt>MON balance</dt>
-                <dd>{mon === null ? '…' : `${mon} MON`}</dd>
-              </div>
-              <div>
-                <dt>Derivation path</dt>
-                <dd>{EVM_ACCOUNT_PATH}</dd>
-              </div>
-              <div>
-                <dt>Adapter</dt>
-                <dd>toViemAccount · source {wallet.account.source}</dd>
-              </div>
-            </dl>
-
-            <button type="button" onClick={onSendToSelf} disabled={busy}>
-              {action === 'send' ? 'Sending…' : `Send ${SEND_AMOUNT_MON} MON to myself`}
-            </button>
-
-            <dl className="facts">
-              <div>
-                <dt>Amount</dt>
-                <dd>{SEND_AMOUNT_MON} MON</dd>
-              </div>
-              <div>
-                <dt>Gas limit</dt>
-                <dd>{TRANSFER_GAS_LIMIT.toLocaleString('en-US')}</dd>
-              </div>
-            </dl>
-
+      {session.expired && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <h2>Session expired</h2>
             <p className="muted">
-              Monad charges the declared gas limit, so this transfer declares exactly{' '}
-              {TRANSFER_GAS_LIMIT.toLocaleString('en-US')} — the intrinsic cost of a
-              value transfer with no calldata. Get testnet MON from the{' '}
-              <a href={FAUCET_URL} target="_blank" rel="noreferrer">
-                faucet
-              </a>
-              .
+              Your signing session ended for your safety. Continue with one passkey prompt.
             </p>
-          </section>
-
-          <section className="card">
-            <h2>MockStock</h2>
-
-            {MOCK_STOCK_ADDRESS === undefined ? (
-              <>
-                <p className="muted">
-                  Not deployed yet. Fund the throwaway deployer, then run{' '}
-                  <code>npm run deploy:mockstock</code> and restart the dev server.
-                </p>
-                <dl className="facts">
-                  <div>
-                    <dt>Deployer</dt>
-                    <dd>{DEPLOYER_ADDRESS ?? 'not configured'}</dd>
-                  </div>
-                  <div>
-                    <dt>Needs</dt>
-                    <dd>{FUND_DEPLOYER_AMOUNT_MON} MON</dd>
-                  </div>
-                </dl>
-                <button
-                  type="button"
-                  onClick={onFundDeployer}
-                  disabled={busy || DEPLOYER_ADDRESS === undefined}
-                >
-                  {action === 'fund'
-                    ? 'Funding…'
-                    : `Fund deployer with ${FUND_DEPLOYER_AMOUNT_MON} MON`}
-                </button>
-              </>
-            ) : (
-              <>
-                <p className="label">Contract</p>
-                <p className="address">{MOCK_STOCK_ADDRESS}</p>
-                <dl className="facts">
-                  <div>
-                    <dt>Your balance</dt>
-                    <dd>{stock === null ? '…' : `${formatUnits(stock.balance, 18)} MOCK`}</dd>
-                  </div>
-                  <div>
-                    <dt>Per mint</dt>
-                    <dd>{stock === null ? '…' : `${formatUnits(stock.mintAmount, 18)} MOCK`}</dd>
-                  </div>
-<div>
-                    <dt>Gas limit</dt>
-                    <dd>{MINT_GAS_LIMIT.toLocaleString('en-US')}</dd>
-                  </div>
-                  <div>
-                    <dt>Max fee</dt>
-                    <dd>
-                      {fees === null
-                        ? '…'
-                        : `${(Number(fees.maxFeePerGas) / 1e9).toString()} gwei`}
-                    </dd>
-                  </div>
-                </dl>
-                <button type="button" onClick={onMint} disabled={busy || !canAffordMint}>
-              {action === 'mint' ? 'Minting…' : 'Mint MockStock'}
+            <button type="button" className="btn btn--primary" onClick={() => void session.signIn()}>
+              Continue
             </button>
-            {!canAffordMint && mon !== null && (
-              <p className="muted">
-                Needs {mintRequirement} MON to cover the declared gas limit. This account holds{' '}
-                {mon} MON — top up from the{' '}
-                <a href={FAUCET_URL} target="_blank" rel="noreferrer">
-                  faucet
-                </a>
-                .
-              </p>
-            )}
-                <a
-                  className="hash"
-                  href={`${monadTestnet.blockExplorers.default.url}/address/${MOCK_STOCK_ADDRESS}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  View contract on explorer
-                </a>
-              </>
-            )}
-          </section>
-
-          {result !== null && (
-            <section className="card result">
-              <p className="label">{result.label}</p>
-              <a className="hash" href={explorerTxUrl(result.hash)} target="_blank" rel="noreferrer">
-                {result.hash}
-              </a>
-              <p className="muted">
-                {result.status === 'success' ? 'Confirmed' : 'Reverted'} · gas used{' '}
-                {result.gasUsed.toLocaleString('en-US')}
-              </p>
-            </section>
-          )}
-
-          <button type="button" className="ghost lock" onClick={onLock}>
-            Lock session
-          </button>
-        </>
+          </div>
+        </div>
       )}
-
-      {error !== null && <p className="banner banner--error">{error}</p>}
-    </main>
+    </div>
   )
 }
 
-export default App
+function Page({ path, signedIn }: { path: string; signedIn: boolean }) {
+  if (path === '/') {
+    if (signedIn) return <Redirect to="/split" />
+    return <Landing />
+  }
+
+  const tradeParams = matchPath('/trade/:leg', path)
+  if (tradeParams !== null) {
+    if (!signedIn) return <SignInPrompt />
+    return <Trade leg={tradeParams.leg} />
+  }
+
+  switch (path) {
+    case '/split':
+      return signedIn ? <Split /> : <SignInPrompt />
+    case '/dividends':
+      return signedIn ? <Dividends /> : <SignInPrompt />
+    case '/portfolio':
+      return signedIn ? <Portfolio /> : <SignInPrompt />
+    case '/market':
+      return <Market />
+    case '/about':
+      return <About />
+    case '/judges':
+      return <Judges />
+    default:
+      return (
+        <section className="card" style={{ maxWidth: 560 }}>
+          <h2>Page not found</h2>
+          <p className="muted" style={{ marginTop: 8 }}>
+            That route does not exist. <Link to="/">Back to the landing page.</Link>
+          </p>
+        </section>
+      )
+  }
+}
+
+function Redirect({ to }: { to: string }) {
+  useEffect(() => {
+    navigate(to, { replace: true })
+  }, [to])
+  return null
+}
+
+function useRpcHealth(): boolean {
+  const [ok, setOk] = useState(true)
+  useEffect(() => {
+    let alive = true
+    const check = async () => {
+      try {
+        await publicClient.getChainId()
+        if (alive) setOk(true)
+      } catch {
+        if (alive) setOk(false)
+      }
+    }
+    void check()
+    const timer = window.setInterval(() => void check(), 20_000)
+    return () => {
+      alive = false
+      window.clearInterval(timer)
+    }
+  }, [])
+  return ok
+}
+
+export default function App() {
+  return (
+    <SessionProvider>
+      <AppShell />
+    </SessionProvider>
+  )
+}
+
+function SplitIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M4 7h16" />
+      <path d="M4 17h16" />
+      <path d="M12 3v18" strokeDasharray="2 3" />
+    </svg>
+  )
+}
+
+function TradeIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M7 17V7" />
+      <path d="M17 17V7" />
+      <path d="M3 19h18" />
+    </svg>
+  )
+}
+
+function DividendIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5v9M9.5 10.5h5" />
+    </svg>
+  )
+}
+
+function PortfolioIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M4 6.5h16v11H4z" />
+      <path d="M9 21h6" />
+      <path d="M12 17v4" />
+    </svg>
+  )
+}
+
+function MarketIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M5 19V9" />
+      <path d="M10 19V5" />
+      <path d="M15 19v-7" />
+      <path d="M20 19V3" />
+      <path d="M3 21h18" />
+    </svg>
+  )
+}

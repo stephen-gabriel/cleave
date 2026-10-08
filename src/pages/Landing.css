@@ -1,0 +1,284 @@
+/* Landing screen (ui_spec.md §3) */
+
+.landing {
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
+}
+
+.landing__hero {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 56px;
+  align-items: center;
+}
+
+.landing__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.landing__headline {
+  font-size: var(--fs-40);
+  max-width: 12ch;
+}
+
+.landing__subhead {
+  color: var(--muted);
+  font-size: 16px;
+  max-width: 46ch;
+}
+
+.landing__cta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  width: min(100%, 360px);
+  margin-top: 8px;
+}
+
+.landing__micro {
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+  width: 100%;
+}
+
+.landing__error {
+  color: var(--neg);
+  font-size: var(--fs-14);
+}
+
+.landing__below {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.landing__point {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.landing__judges {
+  color: var(--muted);
+  font-size: var(--fs-14);
+  text-align: center;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+/* ==========================================================================
+   Preview — the 6s split loop (ui_spec.md §3)
+   The stock card is two clipped halves; when they slide apart each half turns
+   into its leg card and the split line appears between them.
+   ========================================================================== */
+
+.landing__preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.pv {
+  width: 100%;
+  height: 200px;
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+.pv__card {
+  width: 320px;
+  height: 132px;
+  position: relative;
+  display: flex;
+  will-change: transform;
+}
+
+.pv__half {
+  position: relative;
+  width: 50%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  will-change: transform, background, border-radius;
+}
+
+.pv__half--l {
+  border-radius: 16px 0 0 16px;
+  border-right: 0;
+  animation:
+    pvL 6s ease-in-out infinite,
+    pvLBg 6s ease-in-out infinite,
+    pvBorderL 6s ease-in-out infinite;
+}
+
+.pv__half--r {
+  border-radius: 0 16px 16px 0;
+  border-left: 0;
+  animation:
+    pvR 6s ease-in-out infinite,
+    pvRBg 6s ease-in-out infinite,
+    pvBorderR 6s ease-in-out infinite;
+}
+
+.pv__stack {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 200%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pv__half--l .pv__stack {
+  left: 0;
+}
+
+.pv__half--r .pv__stack {
+  left: -100%;
+}
+
+.pv__stock {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  animation: pvStockFade 6s ease-in-out infinite;
+}
+
+.pv__legwrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  animation: pvLegFade 6s ease-in-out infinite;
+}
+
+.pv__leg-price {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 22px;
+  text-transform: none;
+  color: var(--price);
+}
+
+.pv__leg-div {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 22px;
+  text-transform: none;
+  color: var(--div);
+}
+
+.pv__splitline {
+  position: absolute;
+  top: 14%;
+  bottom: 14%;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-0.5px);
+  background: linear-gradient(180deg, var(--price) 0%, var(--div) 100%);
+  opacity: 0;
+  animation: pvLine 6s ease-in-out infinite;
+}
+
+@keyframes pvL {
+  0%, 22%, 84%, 100% { transform: translateX(0); }
+  30.5%, 76% { transform: translateX(-16px); }
+}
+
+@keyframes pvR {
+  0%, 22%, 84%, 100% { transform: translateX(0); }
+  30.5%, 76% { transform: translateX(16px); }
+}
+
+@keyframes pvLBg {
+  0%, 23%, 83.5%, 100% { background: var(--surface); }
+  30.5%, 76% { background: rgba(91, 140, 255, 0.12); }
+}
+
+@keyframes pvRBg {
+  0%, 23%, 83.5%, 100% { background: var(--surface); }
+  30.5%, 76% { background: rgba(255, 181, 71, 0.12); }
+}
+
+@keyframes pvBorderL {
+  0%, 22%, 84%, 100% { border-radius: 16px 0 0 16px; }
+  30.5%, 76% { border-radius: 16px; }
+}
+
+@keyframes pvBorderR {
+  0%, 22%, 84%, 100% { border-radius: 0 16px 16px 0; }
+  30.5%, 76% { border-radius: 16px; }
+}
+
+@keyframes pvStockFade {
+  0%, 23% { opacity: 1; }
+  30.5% { opacity: 0; }
+  76% { opacity: 0; }
+  83.5%, 100% { opacity: 1; }
+}
+
+@keyframes pvLegFade {
+  0%, 23% { opacity: 0; }
+  30.5% { opacity: 1; }
+  76% { opacity: 1; }
+  83.5%, 100% { opacity: 0; }
+}
+
+@keyframes pvLine {
+  0%, 23% { opacity: 0; }
+  30.5% { opacity: 1; }
+  76% { opacity: 1; }
+  83.5%, 100% { opacity: 0; }
+}
+
+.landing__caption {
+  color: var(--muted);
+  font-size: var(--fs-14);
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
+@media (max-width: 900px) {
+  .landing__hero {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+
+  .landing__headline {
+    font-size: 34px;
+  }
+}
+
+@media (max-width: 767px) {
+  .landing {
+    gap: 40px;
+  }
+
+  .landing__below {
+    grid-template-columns: 1fr;
+  }
+}
