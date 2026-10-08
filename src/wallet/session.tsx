@@ -138,8 +138,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const opened = walletRef.current
     if (opened === null) throw new Error('Not signed in')
 
-    const target = params.to.toLowerCase() as Address
-    if (!ALLOWLIST.includes(target)) {
+    const target = params.to.toLowerCase()
+    if (!ALLOWLIST.some((entry) => entry.toLowerCase() === target)) {
       throw new SessionPolicyError(
         'NOT_ALLOWLISTED',
         'This action is outside your session scope and needs your passkey.',
