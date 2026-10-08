@@ -160,19 +160,38 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     // same diagnostics block as a rejected write.
     let gasPrice = 0n
     let maxFeePerGas = 0n
+    // Monad charges the declared limit in full (src/chain/gas.ts), and
+    // execution costs drift as contract state grows, so the limit is
+    // re-estimated before every send. The configured GAS_LIMITS constant is
+    // only the fallback when estimation itself fails.
+    let gas = params.gas
+    let gasSource = 'configured limit'
     let hash: `0x${string}`
     try {
       gasPrice = await publicClient.getGasPrice()
       maxFeePerGas = (gasPrice * 120n) / 100n
+      try {
+        const estimated = await publicClient.estimateContractGas({
+          account: opened.account,
+          address: params.to,
+          abi: params.abi,
+          functionName: params.functionName,
+          args: params.args,
+        })
+        gas = (estimated * 125n) / 100n
+        gasSource = `estimate ${estimated} +25%`
+      } catch {
+        gasSource = `configured limit ${params.gas}`
+      }
       console.info(
-        `[cleave:send] begin ${params.functionName} gas=${params.gas} gasPrice=${formatGwei(gasPrice)} gwei maxFeePerGas=${formatGwei(maxFeePerGas)} gwei required=${formatEther(params.gas * maxFeePerGas)} MON`,
+        `[cleave:send] begin ${params.functionName} gas=${gas} (${gasSource}) gasPrice=${formatGwei(gasPrice)} gwei maxFeePerGas=${formatGwei(maxFeePerGas)} gwei required=${formatEther(gas * maxFeePerGas)} MON`,
       )
       hash = await client.writeContract({
         address: params.to,
         abi: params.abi,
         functionName: params.functionName,
         args: params.args,
-        gas: params.gas,
+        gas,
         maxFeePerGas,
       })
     } catch (error) {
@@ -184,7 +203,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
       const diagnostics = buildTxDiagnostics({
         address: opened.account.address,
-        gasLimit: params.gas,
+        gasLimit: gas,
         gasPrice,
         maxFeePerGas,
         monBalance,
@@ -198,7 +217,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     console.info(`[cleave:send] submitted ${hash} — waiting for receipt`)
     const receipt = await publicClient.waitForTransactionReceipt({ hash })
     console.info(`[cleave:send] mined ${hash} status=${receipt.status}`)
-    if (receipt.status === 'reverted') throw new RevertedTransactionError(hash)
+    if (receipt.status === 'reverted') {
+      console.error(
+        `[cleave:send] reverted ${hash} gas=${gas} (${gasSource}) — on-chain revert, the declared limit is charged in full`,
+      )
+      throw new RevertedTransactionError(hash)
+    }
     const seconds = finish()
     if (typeof params.usdValue === 'number' && params.usdValue > 0) {
       spentUsdRef.current += params.usdValue
