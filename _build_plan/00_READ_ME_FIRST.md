@@ -39,7 +39,7 @@ polish animations → Portfolio P&L extras → liquidity UI (keep script-seeded 
 | # | Decision | Reason |
 |---|---|---|
 | D1 | Name **Cleave**; underlying **mACME** (new mock token, redeployed), quote **mUSD**, legs **pACME-A** / **dACME-A** | Consistent naming; old MockStock retired |
-| D2 | Single series "A": 6 planned dividends, matures deploy+30 days | Keeps one coherent market |
+| D2 | Single series "A": 6 planned dividends, matures deploy+120 days | Keeps one coherent market |
 | D3 | Dividend leg uses an accumulator (dividend-paying token pattern), distribution is permissionless | Correct under transfers; simple |
 | D4 | Trading via two constant-product pools (30 bps fee): pACME-A/mUSD and dACME-A/mUSD | Real pricing logic, easy to build |
 | D5 | Dividends enter via `DividendOracle`: CRE path (forwarder) + clearly labelled Demo path (anyone, rate-limited) | CRE cannot be deployed (no deploy access) so the live app needs a Demo path; both are shown honestly |

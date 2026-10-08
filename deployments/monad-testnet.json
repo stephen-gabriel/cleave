@@ -1,7 +1,7 @@
 {
   "network": "monad-testnet",
   "chainId": 10143,
-  "deployBlock": 69097584,
+  "deployBlock": 69107200,
   "deployer": "0x899595c2802828BCc25636Bf976A89d4B15824Cd",
   "forwarder": "0xb9f79d863261869b234c481d1f9a7af84aead192",
   "contracts": {
@@ -18,24 +18,24 @@
       "block": 69097595
     },
     "splitter": {
-      "address": "0x64bc1B02d9513Ffe341262B3B86039cA5A6fc5fd",
-      "block": 69097600
+      "address": "0x042D56AcC5b0223930350B41F0FCdAF439480370",
+      "block": 69107200
     },
     "priceLeg": {
-      "address": "0xCBE2042b1A80dEd661D9418EB325C31C63Ffd65e",
-      "block": 69097600
+      "address": "0xe917A6927fEC963eB014529225A9Bff2De6498D7",
+      "block": 69107200
     },
     "divLeg": {
-      "address": "0x4F25529feFB53Ba04B70A5F09060b0D22A6F78f1",
-      "block": 69097600
+      "address": "0x6615F732F278e78BB321FE89342488cf4D139DCe",
+      "block": 69107200
     },
     "poolPrice": {
-      "address": "0xe486De6a5f8d76F4a3082b443FF42cDC735b2d3e",
-      "block": 69097608
+      "address": "0xF0e425305c2F96995a055583876F0Ab85581e72c",
+      "block": 69107205
     },
     "poolDiv": {
-      "address": "0x4c1CcAA95e31D3f056583869D52a15Cfb7DDb092",
-      "block": 69097614
+      "address": "0x0995F279Ed01F6A1019dc1d37570b7DDD783533c",
+      "block": 69107210
     }
   }
 }

@@ -22,6 +22,12 @@ import type { DeploymentFile } from './lib/deployments'
 
 const DAY = 86_400
 const GAS_HEADROOM = 125n // estimated gas x 1.25 as the declared limit
+const SERIES_MATURITY_DAYS = 120 // redeployed 2026-10-08: judging window unknown (docs/decisions.md)
+// Superseded Series A Splitter: still a registered mUSD minter and must be revoked
+// whenever a new Splitter is deployed (it is removed from deployments/monad-testnet.json).
+const LEGACY_SPLITTER_MINTERS: readonly Address[] = [
+  '0x64bc1B02d9513Ffe341262B3B86039cA5A6fc5fd',
+]
 
 type Clients = Awaited<ReturnType<typeof createClients>>
 
@@ -152,8 +158,10 @@ async function main(): Promise<void> {
   let splitter = await existing('splitter')
   if (splitter === null) {
     const latest = await publicClient.getBlock()
-    const maturity = latest.timestamp + 30n * BigInt(DAY)
-    log(`  splitter maturity = ${maturity} (block ts ${latest.timestamp} + 30d)`)
+    const maturity = latest.timestamp + BigInt(SERIES_MATURITY_DAYS) * BigInt(DAY)
+    log(
+      `  splitter maturity = ${maturity} (block ts ${latest.timestamp} + ${SERIES_MATURITY_DAYS}d)`,
+    )
     const { address, block } = await deploy(client, 'Splitter', [
       stock,
       usd,
@@ -210,7 +218,36 @@ async function main(): Promise<void> {
     } else {
       log('  splitter is already an mUSD minter (skip)')
     }
+
+    // Remove the minter role from superseded Splitters so only the live one may mint.
+    for (const legacy of LEGACY_SPLITTER_MINTERS) {
+      if (getAddress(legacy) === splitter) continue
+      const legacyIsMinter = (await publicClient.readContract({
+        address: usd,
+        abi: usdAbi,
+        functionName: 'minters',
+        args: [legacy],
+      })) as unknown as boolean
+      if (legacyIsMinter) {
+        log(`  revoking mUSD minter from legacy splitter ${legacy}`)
+        await call(client, usd, usdAbi, 'setMinter', [legacy, false])
+      } else {
+        log(`  legacy splitter ${legacy} is no longer an mUSD minter (skip)`)
+      }
+    }
   }
+
+  // deployBlock tracks the current series deployment, i.e. the earliest block of the
+  // series contracts (splitter first). Legacy token/oracle blocks are not the series.
+  const seriesBlock = Math.min(
+    depl.contracts.splitter.block,
+    depl.contracts.priceLeg.block,
+    depl.contracts.divLeg.block,
+    depl.contracts.poolPrice.block,
+    depl.contracts.poolDiv.block,
+  )
+  depl.deployBlock = seriesBlock
+  await saveDeployment(depl)
 
   log('')
   log('Deployment summary')
