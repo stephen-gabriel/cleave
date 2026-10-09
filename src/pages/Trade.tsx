@@ -251,7 +251,7 @@ export default function Trade({ leg }: { leg?: string }) {
           to: poolAddress,
           abi: POOL_ABI,
           functionName: 'swapExactIn',
-          args: [buy, amount, minOut],
+          args: [!buy, amount, minOut],
           gas: GAS_LIMITS.swap,
           usdValue,
         })
