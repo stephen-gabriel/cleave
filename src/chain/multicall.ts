@@ -8,6 +8,7 @@ import {
   SPLITTER_ABI,
   SPLIT_TOKEN_ABI,
   DIVIDEND_ORACLE_ABI,
+  POOL_ABI,
 } from './abis'
 
 export const POLL_INTERVAL_MS = 6_000
@@ -29,6 +30,18 @@ export type ChainState = {
   refPrice: number | null
   amountPerShare: number | null
   latestSource: number | null
+  poolPriceReserveToken: bigint | null
+  poolPriceReserveQuote: bigint | null
+  poolDivReserveToken: bigint | null
+  poolDivReserveQuote: bigint | null
+  usdAllowanceDiv: bigint | null
+  usdAllowancePrice: bigint | null
+  priceLegAllowance: bigint | null
+  divLegAllowance: bigint | null
+  poolPriceShares: bigint | null
+  poolDivShares: bigint | null
+  poolPriceTotalShares: bigint | null
+  poolDivTotalShares: bigint | null
   refresh: () => void
 }
 
@@ -50,6 +63,18 @@ const EMPTY: Omit<
   refPrice: null,
   amountPerShare: null,
   latestSource: null,
+  poolPriceReserveToken: null,
+  poolPriceReserveQuote: null,
+  poolDivReserveToken: null,
+  poolDivReserveQuote: null,
+  usdAllowanceDiv: null,
+  usdAllowancePrice: null,
+  priceLegAllowance: null,
+  divLegAllowance: null,
+  poolPriceShares: null,
+  poolDivShares: null,
+  poolPriceTotalShares: null,
+  poolDivTotalShares: null,
 }
 
 export function useChainState(address: Address | null): ChainState {
@@ -135,6 +160,78 @@ export function useChainState(address: Address | null): ChainState {
             functionName: 'lastRefPrice',
             args: [],
           },
+          {
+            address: CHAIN.poolPrice,
+            abi: POOL_ABI,
+            functionName: 'reserveToken',
+            args: [],
+          },
+          {
+            address: CHAIN.poolPrice,
+            abi: POOL_ABI,
+            functionName: 'reserveQuote',
+            args: [],
+          },
+          {
+            address: CHAIN.poolDiv,
+            abi: POOL_ABI,
+            functionName: 'reserveToken',
+            args: [],
+          },
+          {
+            address: CHAIN.poolDiv,
+            abi: POOL_ABI,
+            functionName: 'reserveQuote',
+            args: [],
+          },
+          {
+            address: CHAIN.usd,
+            abi: MOCK_USD_ABI,
+            functionName: 'allowance',
+            args: [address, CHAIN.poolDiv],
+          },
+          {
+            address: CHAIN.usd,
+            abi: MOCK_USD_ABI,
+            functionName: 'allowance',
+            args: [address, CHAIN.poolPrice],
+          },
+          {
+            address: CHAIN.priceLeg,
+            abi: SPLIT_TOKEN_ABI,
+            functionName: 'allowance',
+            args: [address, CHAIN.poolPrice],
+          },
+          {
+            address: CHAIN.divLeg,
+            abi: SPLIT_TOKEN_ABI,
+            functionName: 'allowance',
+            args: [address, CHAIN.poolDiv],
+          },
+          {
+            address: CHAIN.poolPrice,
+            abi: POOL_ABI,
+            functionName: 'shares',
+            args: [address],
+          },
+          {
+            address: CHAIN.poolDiv,
+            abi: POOL_ABI,
+            functionName: 'shares',
+            args: [address],
+          },
+          {
+            address: CHAIN.poolPrice,
+            abi: POOL_ABI,
+            functionName: 'totalShares',
+            args: [],
+          },
+          {
+            address: CHAIN.poolDiv,
+            abi: POOL_ABI,
+            functionName: 'totalShares',
+            args: [],
+          },
         ],
       })
 
@@ -155,6 +252,18 @@ export function useChainState(address: Address | null): ChainState {
       const oracleCount = asNumber(result[9])
       const refPriceWad = asBigInt(result[10]) ?? 100n * 10n ** 18n
       const refPrice = refPriceWad === null ? null : Number(refPriceWad) / 1e18
+      const poolPriceReserveToken = asBigInt(result[11])
+      const poolPriceReserveQuote = asBigInt(result[12])
+      const poolDivReserveToken = asBigInt(result[13])
+      const poolDivReserveQuote = asBigInt(result[14])
+      const usdAllowanceDiv = asBigInt(result[15])
+      const usdAllowancePrice = asBigInt(result[16])
+      const priceLegAllowance = asBigInt(result[17])
+      const divLegAllowance = asBigInt(result[18])
+      const poolPriceShares = asBigInt(result[19])
+      const poolDivShares = asBigInt(result[20])
+      const poolPriceTotalShares = asBigInt(result[21])
+      const poolDivTotalShares = asBigInt(result[22])
 
       let amountPerShare: number | null = null
       let latestSource: number | null = null
@@ -194,6 +303,18 @@ export function useChainState(address: Address | null): ChainState {
         refPrice,
         amountPerShare,
         latestSource,
+        poolPriceReserveToken,
+        poolPriceReserveQuote,
+        poolDivReserveToken,
+        poolDivReserveQuote,
+        usdAllowanceDiv,
+        usdAllowancePrice,
+        priceLegAllowance,
+        divLegAllowance,
+        poolPriceShares,
+        poolDivShares,
+        poolPriceTotalShares,
+        poolDivTotalShares,
       })
       setOffline(false)
     } catch {

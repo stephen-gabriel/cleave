@@ -1,0 +1,658 @@
+/* Trade screen (ui_spec.md §6) — blue always ties to Price leg, amber always to Dividend leg. */
+
+.trade {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.trade__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 24px;
+  align-items: start;
+}
+
+.trade__main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+@media (max-width: 980px) {
+  .trade__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================================================
+   Header — price, 24h chips, ticker
+   ========================================================================== */
+
+.trade__head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.trade__price {
+  font-size: var(--fs-28);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.trade__headmeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.trade__ticker {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: var(--fs-14);
+}
+
+/* ==========================================================================
+   Leg toggle
+   ========================================================================== */
+
+.legtoggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.legtoggle__btn {
+  padding: 14px 16px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: var(--fs-14);
+  font-weight: 600;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.legtoggle__btn:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.legtoggle__btn:disabled {
+  opacity: 0.6;
+}
+
+.legtoggle__btn--div.legtoggle__btn--on {
+  border-color: rgba(255, 181, 71, 0.55);
+  background: rgba(255, 181, 71, 0.08);
+  color: var(--div);
+}
+
+.legtoggle__btn--price.legtoggle__btn--on {
+  border-color: rgba(91, 140, 255, 0.55);
+  background: rgba(91, 140, 255, 0.08);
+  color: var(--price);
+}
+
+/* ==========================================================================
+   Price chart
+   ========================================================================== */
+
+.chart {
+  padding: 18px;
+}
+
+.chart__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.segmented--sm .segmented__btn {
+  min-height: 28px;
+  padding: 4px 12px;
+  font-size: var(--fs-12);
+}
+
+.chart__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 44px 16px;
+  color: var(--muted);
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-control);
+}
+
+.chart__spot {
+  font-size: var(--fs-12);
+}
+
+.chart__wrap {
+  position: relative;
+}
+
+.chart__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.chart__gridline {
+  stroke: var(--surface-2);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart__line {
+  fill: none;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart__exdiv {
+  stroke: var(--div);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart__fair {
+  stroke: var(--muted);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart__hoverline {
+  stroke: var(--text);
+  stroke-width: 1;
+  opacity: 0.35;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart__hoverdot {
+  stroke: var(--bg);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart__tooltip {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: var(--fs-12);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.chart__tooltip-time {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.chart__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: var(--fs-12);
+}
+
+.chart__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart__exdiv-k {
+  width: 18px;
+  height: 0;
+  border-top: 1px dashed var(--div);
+}
+
+/* ==========================================================================
+   Stats row
+   ========================================================================== */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 760px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.stat--emph {
+  border-color: rgba(255, 181, 71, 0.45);
+  background: rgba(255, 181, 71, 0.05);
+}
+
+.stat__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: var(--fs-12);
+}
+
+.stat__badge {
+  padding: 1px 8px;
+  border-radius: var(--radius-chip);
+  border: 1px solid rgba(255, 181, 71, 0.5);
+  color: var(--div);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.stat__value {
+  font-size: var(--fs-16);
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   Order ticket
+   ========================================================================== */
+
+.ticket {
+  position: sticky;
+  top: calc(var(--topbar-h) + var(--tabs-h) + 16px);
+  padding: 18px;
+}
+
+.ticket--spotlight {
+  border-color: rgba(91, 140, 255, 0.45);
+}
+
+.segmented--ticket .segmented__btn {
+  min-height: 36px;
+}
+
+.ticket__pair {
+  margin: 12px 0 14px;
+  color: var(--muted);
+  font-size: var(--fs-14);
+}
+
+.ticket__receive {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 14px 0 4px;
+}
+
+.ticket__receive-label {
+  color: var(--muted);
+  font-size: var(--fs-14);
+}
+
+.ticket__receive-value {
+  margin-left: auto;
+  font-size: var(--fs-20);
+  font-weight: 600;
+}
+
+.ticket__receive-ticker {
+  color: var(--muted);
+  font-size: var(--fs-14);
+}
+
+.details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 16px;
+  margin: 12px 0 0;
+}
+
+.details div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--fs-12);
+}
+
+.details dt {
+  color: var(--muted);
+}
+
+.details dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.detail--warn {
+  color: var(--div);
+}
+
+.detail--neg {
+  color: var(--neg);
+}
+
+.ticket__ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 14px 0 4px;
+  color: var(--div);
+  font-size: var(--fs-14);
+  cursor: pointer;
+}
+
+.ticket__ack input {
+  margin-top: 3px;
+  accent-color: var(--div);
+}
+
+.ticket__disclosure {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* ==========================================================================
+   Slippage
+   ========================================================================== */
+
+.slippage {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 0 6px;
+}
+
+.slippage__label {
+  color: var(--muted);
+  font-size: var(--fs-14);
+}
+
+.slippage__chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.chip--slippage {
+  cursor: pointer;
+  padding: 4px 10px;
+  font-weight: 600;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.chip--slippage:hover:not(:disabled) {
+  border-color: var(--muted);
+  color: var(--text);
+}
+
+.chip--slippage:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.chip--slippage-on {
+  border-color: var(--focus);
+  color: var(--text);
+  background: rgba(143, 179, 255, 0.1);
+}
+
+.slippage__custom {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 8px;
+  border: 1px solid var(--focus);
+  border-radius: var(--radius-chip);
+  background: rgba(143, 179, 255, 0.1);
+  color: var(--text);
+  font-size: var(--fs-12);
+}
+
+.slippage__custom input {
+  width: 48px;
+  background: none;
+  border: 0;
+  color: var(--text);
+  font-size: var(--fs-12);
+  padding: 0;
+}
+
+.slippage__custom input:focus {
+  outline: none;
+}
+
+/* ==========================================================================
+   Recent trades
+   ========================================================================== */
+
+.feed {
+  padding: 18px;
+}
+
+.feed__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.chip--simfeed {
+  color: var(--div);
+  font-family: var(--mono);
+  font-size: var(--fs-12);
+}
+
+.feed__empty {
+  padding: 28px 12px;
+  color: var(--muted);
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-control);
+  font-size: var(--fs-14);
+}
+
+.feed__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-12);
+}
+
+.feed__table th {
+  color: var(--muted);
+  font-weight: 600;
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.feed__table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--surface-2);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.feed__table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.feed__row--mine {
+  background: rgba(91, 140, 255, 0.06);
+}
+
+.feed__side {
+  font-weight: 600;
+}
+
+.feed__side--buy {
+  color: var(--pos);
+}
+
+.feed__side--sell {
+  color: var(--neg);
+}
+
+.feed__sim {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: var(--radius-chip);
+  border: 1px solid rgba(255, 181, 71, 0.5);
+  color: var(--div);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.feed__time,
+.feed__trader {
+  color: var(--muted);
+}
+
+.feed__note {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* ==========================================================================
+   Liquidity
+   ========================================================================== */
+
+.liquidity {
+  padding: 0;
+}
+
+.liquidity__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 18px;
+}
+
+.liquidity__chev {
+  color: var(--muted);
+  font-size: var(--fs-20);
+  font-weight: 600;
+}
+
+.liquidity__body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 18px 18px;
+}
+
+.liquidity__inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .liquidity__inputs {
+    grid-template-columns: 1fr;
+  }
+}
+
+.liquidity__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn--secondary {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+
+.liquidity__share {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: var(--fs-14);
+}
+
+/* ==========================================================================
+   Chip tones
+   ========================================================================== */
+
+.chip--pos {
+  border-color: rgba(61, 220, 151, 0.45);
+  color: var(--pos);
+}
+
+.chip--neg {
+  border-color: rgba(255, 107, 107, 0.45);
+  color: var(--neg);
+}
+
+.chip--fair {
+  border-color: rgba(91, 140, 255, 0.45);
+  color: var(--price);
+}
+
+.chip--cheap {
+  border-color: rgba(61, 220, 151, 0.45);
+  color: var(--pos);
+}
+
+.chip--rich {
+  border-color: rgba(255, 107, 107, 0.45);
+  color: var(--neg);
+}
+
+.chip--in-line {
+  border-color: rgba(143, 179, 255, 0.45);
+  color: var(--focus);
+}
+
+.chip--muted {
+  border-color: var(--border);
+  color: var(--muted);
+}

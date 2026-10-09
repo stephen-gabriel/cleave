@@ -617,4 +617,89 @@ export const DIVIDEND_ORACLE_ABI = [
     type: 'function',
   },
 ] as const
-export const POOL_ABI = [] as const
+export const POOL_ABI = [
+  {
+    inputs: [{ internalType: 'uint256', name: 'tokenAmt', type: 'uint256' }, { internalType: 'uint256', name: 'quoteAmt', type: 'uint256' }, { internalType: 'uint256', name: 'minShares', type: 'uint256' }],
+    name: 'addLiquidity',
+    outputs: [{ internalType: 'uint256', name: 'sh', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'feeBps',
+    outputs: [{ internalType: 'uint16', name: '', type: 'uint16' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'bool', name: 'tokenIn', type: 'bool' }, { internalType: 'uint256', name: 'amountIn', type: 'uint256' }],
+    name: 'getAmountOut',
+    outputs: [
+      { internalType: 'uint256', name: 'out', type: 'uint256' },
+      { internalType: 'uint256', name: 'fee', type: 'uint256' },
+      { internalType: 'uint256', name: 'priceImpactBps', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'quote',
+    outputs: [{ internalType: 'contract IERC20', name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'uint256', name: 'sh', type: 'uint256' }, { internalType: 'uint256', name: 'minToken', type: 'uint256' }, { internalType: 'uint256', name: 'minQuote', type: 'uint256' }],
+    name: 'removeLiquidity',
+    outputs: [
+      { internalType: 'uint256', name: 'tokenOut', type: 'uint256' },
+      { internalType: 'uint256', name: 'quoteOut', type: 'uint256' },
+    ],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'reserveQuote',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'reserveToken',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'address', name: '', type: 'address' }],
+    name: 'shares',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ internalType: 'bool', name: 'tokenIn', type: 'bool' }, { internalType: 'uint256', name: 'amountIn', type: 'uint256' }, { internalType: 'uint256', name: 'minOut', type: 'uint256' }],
+    name: 'swapExactIn',
+    outputs: [{ internalType: 'uint256', name: 'out', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'token',
+    outputs: [{ internalType: 'contract IERC20', name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'totalShares',
+    outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+] as const
