@@ -26,7 +26,8 @@ T1.3 measures `estimateGas` on Monad Testnet × 1.25 and stores the limits in `s
 | distribute #1 | 56533 |
 | distribute #2 | 82527 |
 | faucet | 67839 |
-| merge | 83893 |
+| faucet usd | 67839 |
+| merge | 70213 |
 | merge before claim | 102053 |
 | mint stock to alice | 71181 |
 | mint usd to alice | 71147 |

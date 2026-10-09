@@ -98,3 +98,19 @@ npm run test
 # Deployment
 
 - Production URL: https://cleave-web.vercel.app
+
+
+## Current status (2026-10-09)
+
+- **Split gas issue: RESOLVED.** Owner confirmed a successful split of 100 mACME using the existing passkey wallet on https://cleave-web.vercel.app. This closes the owner-test blocker for dynamic gas-estimation fix `0da6c2b`, verified on GitHub main and in the live JavaScript bundle. No transaction hash or console trace was supplied; a separate approval receipt was not independently checked.
+- T2.3 still has outstanding documented acceptance checks: merge returns stock, clearing site data and signing back in preserves address/balances, and the fresh-account starter flow. The successful existing-wallet split does not establish those results.
+- Next unfinished milestone: **Milestone 02 - Key features**. Recommended next implementation task: **T2.2 Envio indexer**, after owner approval. Main-repo `indexer/` is an untracked Series A scaffold without handlers; sibling `Cleave-Envio` is the original MockStock indexer. Preserve both and build on the current Series A configuration. `src/data/envio.ts` is absent; Trade, Dividends, Portfolio and Market are currently placeholders.
+- Current implemented CRE dividend workflow is in main-repo `cre/`; use `cre/README.md` for current configuration and recorded evidence. The sibling CRE/MockStock configuration above describes the original tutorial, not the current Cleave dividend workflow. Do not broadcast additional declarations for this inspection.
+- `_gas.mjs` and `indexer/` remain untracked and preserved. This status update authorizes documentation edits only; no application changes, new milestone work, commit, push, or deployment.
+
+## T2.2 Envio — verified (2026-10-09)
+
+- **T2.2 implementation complete and committed.** Series A `indexer/` (config from `frd.md` §6 contract/event surface, handlers for Split/Merge/Redeem/Swap/LiquidityChanged/DividendDeclared/DividendDistributed/Claimed, `Activity` feed, ProtocolStats simulated vs organic split), `src/data/{envio,envioStore,useEnvio}.ts` typed queries + single 3 s shared poller with backoff, and test harness (`frontend-tests/`, `vitest.config.ts`, `tsconfig.tests.json`).
+- **Verification run locally:** 17 contract tests pass (`npx hardhat test`); indexer codegen + strict typecheck + 6 deterministic tests pass in Ubuntu WSL (`scripts/indexer-wsl.sh check`); 8 frontend tests pass; `tsc -b && vite build` passes; `oxlint` 0 errors.
+- **Remaining T2.2 owner-gated steps (not done):** Docker/PostgreSQL/GraphQL local run (Docker daemon currently stopped), Envio Cloud deploy (`ENVIO_API_TOKEN` not present locally), public endpoint check (`scripts/check-envio.ts`), setting `VITE_ENVIO_GRAPHQL_URL`, and Vercel redeploy. The repo-root relative imports in `indexer/src/handlers/cleave.ts` must have the full checkout available when hosted; verify Envio Cloud checkout layout at deploy time.
+- `_gas.mjs` remains a throwaway scratch script (self-labelled "deleted before commit") and is intentionally left untracked.

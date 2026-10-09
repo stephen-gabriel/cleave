@@ -1,0 +1,5 @@
+﻿{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": { "types": ["vite/client", "node"], "noUnusedLocals": false, "noUnusedParameters": false },
+  "include": ["src", "frontend-tests", "vitest.config.ts", "scripts/check-envio.ts"]
+}

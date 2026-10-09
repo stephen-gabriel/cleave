@@ -150,6 +150,24 @@ describe('1. split→merge round trip returns exact stock; legs burned', () => {
   })
 })
 
+describe('Starter flow: fresh account faucets, split 100 and merge 100', () => {
+  it('mints exact balances and restores stock without consuming mUSD', async () => {
+    const c = await networkHelpers.loadFixture(deployCore)
+    assert.equal(await c.stock.read.balanceOf([alice.account.address]), 0n)
+    await tx('faucet usd', c.usdAlice.write.faucet())
+    await splitAs(c, alice, 100n * E)
+    assert.equal(await c.stock.read.balanceOf([alice.account.address]), 900n * E)
+    assert.equal(await c.usd.read.balanceOf([alice.account.address]), 10_000n * E)
+    assert.equal(await c.priceLegAlice.read.balanceOf([alice.account.address]), 100n * E)
+    assert.equal(await c.divLegAlice.read.balanceOf([alice.account.address]), 100n * E)
+    await tx('merge', c.splitterAlice.write.merge([100n * E]))
+    assert.equal(await c.stock.read.balanceOf([alice.account.address]), 1000n * E)
+    assert.equal(await c.usd.read.balanceOf([alice.account.address]), 10_000n * E)
+    assert.equal(await c.priceLegAlice.read.balanceOf([alice.account.address]), 0n)
+    assert.equal(await c.divLegAlice.read.balanceOf([alice.account.address]), 0n)
+  })
+})
+
 describe('2. dividend accumulator: split 100, transfer 40, distribute $1 → A 60 / B 40, claim pays exactly once', () => {
   it('pays A 60 mUSD and B 40 mUSD, and only once', async () => {
     const c = await networkHelpers.loadFixture(deployCore)
