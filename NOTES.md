@@ -108,6 +108,16 @@ npm run test
 - Current implemented CRE dividend workflow is in main-repo `cre/`; use `cre/README.md` for current configuration and recorded evidence. The sibling CRE/MockStock configuration above describes the original tutorial, not the current Cleave dividend workflow. Do not broadcast additional declarations for this inspection.
 - `_gas.mjs` and `indexer/` remain untracked and preserved. This status update authorizes documentation edits only; no application changes, new milestone work, commit, push, or deployment.
 
+## T2.4 Pre-owner-test readiness check (2026-10-10)
+
+Read-only probe of Monad testnet + indexer check; nothing broadcast. Findings:
+
+- **On-chain READY.** RPC reachable (chain 10143). Price pool 0xF0e4…72c = 5000 pACME : 470,000 mUSD (≈94.00); dividend pool 0x0995…3c = 5000 dACME : 30,000 mUSD (≈6.00); fee 30 bps each. Splitter maturity 2027-02-04, planned 6 / distributed 0 / remaining 6. Oracle count 4, latest seq 1031 (amount 1.10, refPrice 95.31, source CRE), past ex-at. `.env` VITE_* addresses exactly match `deployments/monad-testnet.json`.
+- **Bug found and fixed (`2f59d5f`):** Trade executed `swapExactIn([buy,…])` but quoted with `tokenIn = !buy`. Verified against live pools + artifact ABI + pool contract tests — every swap would have pulled the wrong, unapproved asset and reverted. Now `[!buy, amount, minOut]`.
+- **Indexer check passes** in WSL (codegen + strict typecheck + 6 tests). Docker is stopped and `envio` CLI is not installed, so a local GraphQL run or Cloud deploy needs the daemon + `ENVIO_API_TOKEN`.
+- **Blocker (approval-gated):** local commits `b39c185` (T2.2), `180aba8` (T2.4), `2f59d5f` (swap fix) are **not pushed** — the live cleave-web.vercel.app has no Trade screen until push (+ Vercel deploy). `VITE_ENVIO_GRAPHQL_URL` is unset so live charts/feed show the "unconfigured" empty states; buy/sell and on-chain balances are unaffected. `/api/drip` works only on Vercel (or `vercel dev`) and needs `DRIP_PRIVATE_KEY` set there; `.env.drip` holds it locally, `.env` does not. Public RPC rejects `eth_getLogs` (range too large) — relevant only to local Envio ingestion, not trading.
+- Expected live quotes (at current reserves): 100 mUSD → 16.56 dACME (0.63% impact), 10 dACME → 59.70 mUSD, 100 mUSD → 1.060 pACME (0.32%), 10 pACME → 935.31 mUSD. Faucets are unlimited: 1,000 mACME and 10,000 mUSD per call, no cooldown; `/api/drip` sends 0.25 MON (skips if balance ≥ 0.05 MON, rate limit 3/hr per IP).
+
 ## T2.4 Trade screen — verified (2026-10-09)
 
 - **T2.4 implementation complete and committed (`180aba8`).** `src/pages/Trade.tsx` + `Trade.css`: Dividend/Price leg toggle, pool price chart (Envio `PoolHourly`/`Swap`) with fair-value dotted line and ex-dividend markers, 4-tile stats row (fair value w/ "Estimated" badge, pool-vs-fair chip, liquidity = mUSD reserve ×2, implied yield / accretes note), buy/sell order ticket quoting live via `Pool.getAmountOut` with debounce, price impact + min-received + 0.30% fee + custom slippage (localStorage), session-cap (5,000 mUSD) re-prompt modal, Envio trades feed (SIM tags for sim-wallets, own-trade highlight), and a Provide-liquidity accordion.
