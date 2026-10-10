@@ -42,6 +42,7 @@ export type ChainState = {
   poolDivShares: bigint | null
   poolPriceTotalShares: bigint | null
   poolDivTotalShares: bigint | null
+  divLegPending: bigint | null
   refresh: () => void
 }
 
@@ -75,6 +76,7 @@ const EMPTY: Omit<
   poolDivShares: null,
   poolPriceTotalShares: null,
   poolDivTotalShares: null,
+  divLegPending: null,
 }
 
 export function useChainState(address: Address | null): ChainState {
@@ -232,6 +234,12 @@ export function useChainState(address: Address | null): ChainState {
             functionName: 'totalShares',
             args: [],
           },
+          {
+            address: CHAIN.divLeg,
+            abi: SPLIT_TOKEN_ABI,
+            functionName: 'pending',
+            args: [address],
+          },
         ],
       })
 
@@ -264,6 +272,7 @@ export function useChainState(address: Address | null): ChainState {
       const poolDivShares = asBigInt(result[20])
       const poolPriceTotalShares = asBigInt(result[21])
       const poolDivTotalShares = asBigInt(result[22])
+      const divLegPending = asBigInt(result[23])
 
       let amountPerShare: number | null = null
       let latestSource: number | null = null
@@ -315,6 +324,7 @@ export function useChainState(address: Address | null): ChainState {
         poolDivShares,
         poolPriceTotalShares,
         poolDivTotalShares,
+        divLegPending,
       })
       setOffline(false)
     } catch {

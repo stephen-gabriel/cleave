@@ -118,6 +118,23 @@ Read-only probe of Monad testnet + indexer check; nothing broadcast. Findings:
 - **Blocker (approval-gated):** local commits `b39c185` (T2.2), `180aba8` (T2.4), `2f59d5f` (swap fix) are **not pushed** — the live cleave-web.vercel.app has no Trade screen until push (+ Vercel deploy). `VITE_ENVIO_GRAPHQL_URL` is unset so live charts/feed show the "unconfigured" empty states; buy/sell and on-chain balances are unaffected. `/api/drip` works only on Vercel (or `vercel dev`) and needs `DRIP_PRIVATE_KEY` set there; `.env.drip` holds it locally, `.env` does not. Public RPC rejects `eth_getLogs` (range too large) — relevant only to local Envio ingestion, not trading.
 - Expected live quotes (at current reserves): 100 mUSD → 16.56 dACME (0.63% impact), 10 dACME → 59.70 mUSD, 100 mUSD → 1.060 pACME (0.32%), 10 pACME → 935.31 mUSD. Faucets are unlimited: 1,000 mACME and 10,000 mUSD per call, no cooldown; `/api/drip` sends 0.25 MON (skips if balance ≥ 0.05 MON, rate limit 3/hr per IP).
 
+## T2.4 Trade screen — live verified (2026-10-10)
+
+- **All four wallet tests PASSED on Monad Testnet:** Dividend pool Buy/Sell ✅, Price pool Buy/Sell ✅. Trade screen fully functional with approvals, quotes, slippage, session caps, and Envio feed.
+- Previous session fixes (`2f59d5f` swap fix, `23020ba` sell approval ABI) confirmed on-chain.
+
+## T2.4 Liquidity — live verified (2026-10-10)
+
+- **All four liquidity tests PASSED on Monad Testnet:** Dividend pool Add/Remove ✅, Price pool Add/Remove ✅. `addLiquidity`/`removeLiquidity` round-trip within rounding; LP shares tracked correctly; allowances handled.
+- Pool reserves: Dividend 5,000 dACME : 30,000 mUSD (~6.00), Price 5,000 pACME : 470,000 mUSD (~94.00).
+
+## T2.3 Dividends UI — implemented (2026-10-10)
+
+- **Complete implementation per ui_spec.md §7:** Summary card (earned + balance + claim), Next dividend panel (state machine: none → countdown → ready → paid), Timeline (Envio declarations with source badges, status, explorer links), Education footer.
+- Contract reads: `divLeg.pending()` added to multicall for claimable amount; `declareDemo` + `distribute` transaction handlers with session policy integration.
+- Reuses existing components: `ConfirmationChip`, `Chip` (source badges), `Link`, toast, session, `useEnvio` for declarations.
+- Verification: `tsc -b`, `npm run build`, `npm run typecheck:tests` pass. 18 frontend tests pass. 17 contract tests pass.
+
 ## T2.4 Trade screen — verified (2026-10-09)
 
 - **T2.4 implementation complete and committed (`180aba8`).** `src/pages/Trade.tsx` + `Trade.css`: Dividend/Price leg toggle, pool price chart (Envio `PoolHourly`/`Swap`) with fair-value dotted line and ex-dividend markers, 4-tile stats row (fair value w/ "Estimated" badge, pool-vs-fair chip, liquidity = mUSD reserve ×2, implied yield / accretes note), buy/sell order ticket quoting live via `Pool.getAmountOut` with debounce, price impact + min-received + 0.30% fee + custom slippage (localStorage), session-cap (5,000 mUSD) re-prompt modal, Envio trades feed (SIM tags for sim-wallets, own-trade highlight), and a Provide-liquidity accordion.
