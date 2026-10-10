@@ -159,4 +159,13 @@ Read-only probe of Monad testnet + indexer check; nothing broadcast. Findings:
 - **Live verification**: Trade screen shows actual swaps in chart/feed; Dividends timeline displays declarations; Portfolio history renders Activity feed; Market stats show ProtocolStats with SIM/organic split.
 - Zero-cost, no paid services, no historical events skipped.
 
-## T2.6 Session Policy UI — next
+## T2.6 Session Policy UI — implemented (2026-10-10)
+
+- **Complete implementation per ui_spec.md §10 & frd.md §3**: Session sheet (AccountChip dropdown) with address copy/explorer, session countdown ring + progress bar, spend limit (used/total mUSD), scope info, Extend session / Lock now buttons, "Not your account?" link.
+- **Pending action tracking**: `SessionContext` now tracks pending `send` actions; when session expires, the action is stored and automatically retried after re-authentication.
+- **Expired modal retry**: Non-dismissable modal when action pending; "Continue" button calls `signIn()` which re-authenticates and retries the pending action; shows explanatory text when retrying.
+- **Cap re-prompt**: Trade screen's `CapModal` already implemented for >5,000 mUSD actions.
+- **Allowlist enforcement**: `session.send()` throws `SessionPolicyError` for non-allowlisted targets, triggering passkey re-prompt.
+- **Verification**: `tsc -b`, `npm run build`, `npm run typecheck:tests` pass. 18 frontend tests pass. 17 contract tests pass.
+
+## T2.6 Session Policy UI — next: T2.7 Portfolio & Market
