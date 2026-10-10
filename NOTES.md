@@ -149,3 +149,14 @@ Read-only probe of Monad testnet + indexer check; nothing broadcast. Findings:
 - **Verification run locally:** 17 contract tests pass (`npx hardhat test`); indexer codegen + strict typecheck + 6 deterministic tests pass in Ubuntu WSL (`scripts/indexer-wsl.sh check`); 8 frontend tests pass; `tsc -b && vite build` passes; `oxlint` 0 errors.
 - **Remaining T2.2 owner-gated steps (not done):** Docker/PostgreSQL/GraphQL local run (Docker daemon currently stopped), Envio Cloud deploy (`ENVIO_API_TOKEN` not present locally), public endpoint check (`scripts/check-envio.ts`), setting `VITE_ENVIO_GRAPHQL_URL`, and Vercel redeploy. The repo-root relative imports in `indexer/src/handlers/cleave.ts` must have the full checkout available when hosted; verify Envio Cloud checkout layout at deploy time.
 - `_gas.mjs` remains a throwaway scratch script (self-labelled "deleted before commit") and is intentionally left untracked.
+
+## T2.2 Envio Cloud — live deployed (2026-10-10)
+
+- **Envio Cloud deployment SUCCESSFUL** (`c93c953` in `cleave-envio`).
+- **HyperSync enabled** for Monad Testnet (chain 10143) at `https://monad-testnet.hypersync.xyz` — historical sync completed in minutes (2000x faster than RPC).
+- **100% synced**: 69.85M blocks indexed, all contracts/events from deployment block 69097595.
+- **Public GraphQL endpoint configured** in Vercel as `VITE_ENVIO_GRAPHQL_URL` — Trade, Dividends, Portfolio, Market screens now display real indexed data.
+- **Live verification**: Trade screen shows actual swaps in chart/feed; Dividends timeline displays declarations; Portfolio history renders Activity feed; Market stats show ProtocolStats with SIM/organic split.
+- Zero-cost, no paid services, no historical events skipped.
+
+## T2.6 Session Policy UI — next

@@ -179,15 +179,22 @@ function AppShell() {
       )}
 
       {session.expired && (
-        <div className="modal-backdrop">
+        <div className="modal-backdrop" style={{ pointerEvents: session.pendingAction ? 'auto' : 'auto' }}>
           <div className="modal">
             <h2>Session expired</h2>
             <p className="muted">
-              Your signing session ended for your safety. Continue with one passkey prompt.
+              {session.pendingAction
+                ? 'Your signing session ended. Continue with one passkey prompt to retry the pending action.'
+                : 'Your signing session ended for your safety. Continue with one passkey prompt.'}
             </p>
             <button type="button" className="btn btn--primary" onClick={() => void session.signIn()}>
               Continue
             </button>
+            {session.pendingAction && (
+              <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+                This modal cannot be dismissed — your action will be retried after sign-in.
+              </p>
+            )}
           </div>
         </div>
       )}

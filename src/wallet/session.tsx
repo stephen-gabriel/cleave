@@ -51,6 +51,11 @@ export function isRevertedTransactionError(error: unknown): error is RevertedTra
   return error instanceof RevertedTransactionError
 }
 
+export type PendingAction = {
+  type: 'send'
+  params: SendParams
+} | null
+
 export type SessionContextValue = {
   wallet: PasskeyWallet | null
   signedInAt: number | null
@@ -65,6 +70,9 @@ export type SessionContextValue = {
   lock: () => void
   extend: () => Promise<void>
   send: (params: SendParams) => Promise<SendResult>
+  pendingAction: PendingAction
+  setPendingAction: (action: PendingAction) => void
+  clearPendingAction: () => void
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null)
@@ -81,6 +89,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const walletRef = useRef<PasskeyWallet | null>(null)
   const spentUsdRef = useRef(0)
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null)
+
+  const clearPendingAction = useCallback(() => {
+    setPendingAction(null)
+  }, [])
 
   const applyWallet = useCallback((opened: PasskeyWallet) => {
     walletRef.current?.session.end()
@@ -111,12 +124,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     void readBalance(opened.account.address)
   }, [applyWallet, readBalance])
 
-  const handleSignIn = useCallback(async () => {
-    const opened = await signIn()
-    applyWallet(opened)
-    void readBalance(opened.account.address)
-  }, [applyWallet, readBalance])
-
   const handleLock = useCallback(() => {
     walletRef.current?.session.end()
     walletRef.current = null
@@ -129,15 +136,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setSpentUsd(0)
   }, [])
 
-  const handleExtend = useCallback(async () => {
-    const opened = await signIn()
-    applyWallet(opened)
-    void readBalance(opened.account.address)
-  }, [applyWallet, readBalance])
-
   const handleSend = useCallback(async (params: SendParams): Promise<SendResult> => {
     const opened = walletRef.current
     if (opened === null) throw new Error('Not signed in')
+
+    // Set pending action for potential session expiry retry
+    setPendingAction({ type: 'send', params })
 
     const target = params.to.toLowerCase()
     if (!ALLOWLIST.some((entry) => entry.toLowerCase() === target)) {
@@ -229,8 +233,39 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setSpentUsd(spentUsdRef.current)
     }
     const isFirst = reportConfirmedTx(hash, seconds).isFirst
+    clearPendingAction()
     return { hash, seconds, isFirst }
   }, [])
+
+  const handleExtend = useCallback(async () => {
+    const opened = await signIn()
+    applyWallet(opened)
+    void readBalance(opened.account.address)
+    // Retry pending action after session extension
+    if (pendingAction && pendingAction.type === 'send') {
+      try {
+        await handleSend(pendingAction.params)
+      } catch {
+        // Error will be handled by caller
+      }
+    }
+    clearPendingAction()
+  }, [applyWallet, readBalance, pendingAction, handleSend])
+
+  const handleSignIn = useCallback(async () => {
+    const opened = await signIn()
+    applyWallet(opened)
+    void readBalance(opened.account.address)
+    // Retry pending action after re-authentication (e.g., after session expiry)
+    if (pendingAction && pendingAction.type === 'send') {
+      try {
+        await handleSend(pendingAction.params)
+      } catch {
+        // Error will be handled by caller
+      }
+    }
+    clearPendingAction()
+  }, [applyWallet, readBalance, pendingAction, handleSend])
 
   useEffect(() => {
     if (wallet === null) return
@@ -273,6 +308,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       lock: handleLock,
       extend: handleExtend,
       send: handleSend,
+      pendingAction,
+      setPendingAction,
+      clearPendingAction,
     }),
     [
       wallet,
@@ -288,6 +326,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       handleLock,
       handleExtend,
       handleSend,
+      pendingAction,
+      setPendingAction,
+      clearPendingAction,
     ],
   )
 
