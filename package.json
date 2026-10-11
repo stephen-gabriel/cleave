@@ -14,6 +14,11 @@
     "deploy:cleave": "hardhat run scripts/deploy-cleave.ts --network monadTestnet",
     "seed": "hardhat run scripts/seed.ts --network monadTestnet",
     "deploy:calculator": "hardhat run scripts/deploy-calculator-consumer.ts --network monadTestnet",
+    "bot": "node --experimental-strip-types scripts/bot.ts",
+    "bot:generate": "node --experimental-strip-types scripts/bot.ts generate-wallets",
+    "bot:fund": "node --experimental-strip-types scripts/bot.ts fund",
+    "bot:estimate-gas": "node --experimental-strip-types scripts/bot.ts estimate-gas",
+    "bot:verify": "node --experimental-strip-types scripts/bot.ts verify",
     "test:frontend": "vitest run --config vitest.config.ts",
     "typecheck:tests": "tsc -p tsconfig.tests.json --noEmit"
   },
