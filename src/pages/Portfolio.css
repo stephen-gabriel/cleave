@@ -1,0 +1,419 @@
+/* Portfolio screen (ui_spec.md §8) — blue always Price leg, amber always Dividend leg. */
+
+.portfolio {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+@media (max-width: 767px) {
+  .portfolio {
+    gap: 16px;
+  }
+}
+
+/* ==========================================================================
+   Card heads
+   ========================================================================== */
+
+.pf-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.pf-card__head h3 {
+  font-size: var(--fs-16);
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   Total value header card
+   ========================================================================== */
+
+.pf-total {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  border-color: rgba(91, 140, 255, 0.35);
+}
+
+.pf-total__main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pf-total__label {
+  color: var(--muted);
+  font-size: var(--fs-14);
+}
+
+.pf-total__value {
+  font-size: var(--fs-40);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+.pf-total__note {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.pf-total__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  text-align: right;
+}
+
+.pf-total__pending {
+  font-size: var(--fs-14);
+  color: var(--div);
+  font-weight: 600;
+}
+
+.pf-total__fee {
+  font-size: 11px;
+  max-width: 320px;
+  line-height: 1.4;
+}
+
+@media (max-width: 640px) {
+  .pf-total {
+    align-items: flex-start;
+  }
+
+  .pf-total__value {
+    font-size: var(--fs-28);
+  }
+
+  .pf-total__meta {
+    align-items: flex-start;
+    text-align: left;
+  }
+}
+
+/* ==========================================================================
+   Holdings table
+   ========================================================================== */
+
+.pf-tablewrap {
+  overflow-x: auto;
+}
+
+.pf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-14);
+}
+
+.pf-table th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: var(--fs-12);
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.pf-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--surface-2);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.pf-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.pf-table .pf-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.pf-table .pf-action {
+  width: 1%;
+  text-align: right;
+  padding-left: 16px;
+}
+
+.pf-asset {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pf-asset__symbol {
+  font-weight: 600;
+}
+
+.pf-asset__note {
+  color: var(--muted);
+  font-size: var(--fs-12);
+}
+
+/* Dots — blue circle = Price leg, amber diamond = Dividend leg (§16). */
+
+.pf-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  background: var(--muted);
+}
+
+.pf-dot--stock {
+  border-radius: 50%;
+  background: var(--text);
+}
+
+.pf-dot--price {
+  border-radius: 50%;
+  background: var(--price);
+}
+
+.pf-dot--div {
+  border-radius: 2px;
+  background: var(--div);
+  transform: rotate(45deg);
+}
+
+.pf-dot--usd {
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.pf-row--claim td {
+  background: rgba(255, 181, 71, 0.05);
+  border-top: 1px solid rgba(255, 181, 71, 0.25);
+  border-bottom: 0;
+}
+
+.pf-claim-result {
+  margin-top: 14px;
+}
+
+/* ==========================================================================
+   Liquidity positions
+   ========================================================================== */
+
+.pf-liq {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pf-liq__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 16px;
+  align-items: center;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  font-size: var(--fs-14);
+}
+
+.pf-liq__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  min-width: 0;
+}
+
+.pf-liq__shares {
+  color: var(--muted);
+  font-size: var(--fs-12);
+}
+
+.pf-liq__value {
+  font-weight: 600;
+  text-align: right;
+}
+
+@media (max-width: 640px) {
+  .pf-liq__row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .pf-liq__value {
+    text-align: left;
+  }
+}
+
+/* ==========================================================================
+   History tabs
+   ========================================================================== */
+
+.pf-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+
+.pf-tabs__btn {
+  min-height: 32px;
+  padding: 4px 14px;
+  border-radius: 9px;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: var(--fs-12);
+}
+
+.pf-tabs__btn:hover {
+  color: var(--text);
+}
+
+.pf-tabs__btn--on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* ==========================================================================
+   History list
+   ========================================================================== */
+
+.pf-history {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pf-history__row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) 32px;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  font-size: var(--fs-14);
+}
+
+.pf-history__time {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-12);
+}
+
+.pf-history__desc {
+  overflow-wrap: anywhere;
+}
+
+.pf-history__sim {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--radius-chip);
+  border: 1px solid rgba(255, 181, 71, 0.5);
+  color: var(--div);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.pf-history__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.pf-history__link:hover {
+  color: var(--text);
+  border-color: var(--muted);
+  text-decoration: none;
+}
+
+.pf-history__note {
+  margin-top: 12px;
+  font-size: 11px;
+}
+
+.pf-history__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ==========================================================================
+   Empty / error states
+   ========================================================================== */
+
+.pf-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 28px 12px;
+  color: var(--muted);
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-control);
+  font-size: var(--fs-14);
+}
+
+.pf-empty a {
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   Account / session block
+   ========================================================================== */
+
+.pf-session__addr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+
+.pf-session__value {
+  font-size: var(--fs-14);
+  overflow-wrap: anywhere;
+}
+
+.pf-session__icons {
+  display: inline-flex;
+  gap: 6px;
+  flex: none;
+}
+
+.pf-session__explainer {
+  font-size: var(--fs-14);
+  line-height: 1.5;
+}
+
+.pf-session__btns {
+  display: flex;
+  gap: 10px;
+}
