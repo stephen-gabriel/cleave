@@ -1,0 +1,340 @@
+/* Market screen (ui_spec.md §9) — honest traction evidence from Envio + chain. */
+
+.market {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+@media (max-width: 767px) {
+  .market {
+    gap: 16px;
+  }
+}
+
+/* ==========================================================================
+   Card heads & shared notes
+   ========================================================================== */
+
+.mk-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.mk-card__head h3 {
+  font-size: var(--fs-16);
+  font-weight: 600;
+}
+
+.mk-chart__note {
+  font-size: var(--fs-12);
+}
+
+.mk-note {
+  margin-top: 12px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.mk-stale {
+  margin: 0 0 12px;
+  font-size: var(--fs-12);
+}
+
+.mk-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 28px 12px;
+  color: var(--muted);
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-control);
+  font-size: var(--fs-14);
+}
+
+.mk-empty a {
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   Stat tiles
+   ========================================================================== */
+
+.mk-stats {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.mk-stats .stat--wide {
+  grid-column: span 2;
+}
+
+@media (max-width: 640px) {
+  .mk-stats .stat--wide {
+    grid-column: span 1;
+  }
+}
+
+.mk-tile__hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* Simulated vs organic stacked bar */
+
+.mk-split__nums {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 4px 0 6px;
+  font-size: var(--fs-14);
+}
+
+.mk-split__sim {
+  color: var(--muted);
+}
+
+.mk-split__org {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.mk-split {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.mk-split__bar--sim {
+  background: var(--muted);
+}
+
+.mk-split__bar--org {
+  background: var(--price);
+}
+
+.mk-split__bar {
+  display: block;
+  height: 100%;
+}
+
+/* ==========================================================================
+   Charts grid
+   ========================================================================== */
+
+.mk-charts-grid {
+  display: grid;
+  gap: 20px;
+}
+
+@media (min-width: 1120px) {
+  .mk-charts-grid--split {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Volume bars */
+
+.mk-vol__sim {
+  fill: var(--muted);
+}
+
+.mk-vol__org {
+  fill: var(--price);
+}
+
+.mk-vol__k {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.mk-vol__k--sim {
+  background: var(--muted);
+}
+
+.mk-vol__k--org {
+  background: var(--price);
+}
+
+.mk-fair-k {
+  width: 18px;
+  height: 0;
+  border-top: 1px dashed var(--muted);
+}
+
+.mk-est {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: var(--radius-chip);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+/* ==========================================================================
+   Pools table
+   ========================================================================== */
+
+.mk-tablewrap {
+  overflow-x: auto;
+}
+
+.mk-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-14);
+}
+
+.mk-table th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: var(--fs-12);
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.mk-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--surface-2);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.mk-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.mk-table .mk-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.mk-pool {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+}
+
+.mk-pool:hover {
+  text-decoration: none;
+}
+
+.mk-pool:hover .mk-pool__ticker {
+  text-decoration: underline;
+}
+
+.mk-pool__ticker {
+  font-weight: 600;
+}
+
+.mk-pool__note {
+  font-size: var(--fs-12);
+}
+
+/* ==========================================================================
+   Activity feed
+   ========================================================================== */
+
+.mk-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mk-feed__row {
+  display: grid;
+  grid-template-columns: 48px 12px minmax(0, 1fr) auto 32px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  font-size: var(--fs-14);
+}
+
+.mk-feed__time {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-12);
+}
+
+.mk-feed__desc {
+  overflow-wrap: anywhere;
+}
+
+.mk-feed__acct {
+  font-family: var(--mono);
+  font-size: var(--fs-12);
+}
+
+.mk-feed__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.mk-feed__link:hover {
+  color: var(--text);
+  border-color: var(--muted);
+  text-decoration: none;
+}
+
+.mk-feed-skel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .mk-feed__row {
+    grid-template-columns: 40px 12px minmax(0, 1fr) 32px;
+    grid-template-areas:
+      'time dot desc link'
+      '.    .   acct link';
+  }
+
+  .mk-feed__time {
+    grid-area: time;
+  }
+
+  .mk-feed__row .pf-dot {
+    grid-area: dot;
+  }
+
+  .mk-feed__desc {
+    grid-area: desc;
+  }
+
+  .mk-feed__acct {
+    grid-area: acct;
+  }
+
+  .mk-feed__link {
+    grid-area: link;
+  }
+}

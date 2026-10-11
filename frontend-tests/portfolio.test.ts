@@ -21,6 +21,7 @@ function entry(partial: Partial<HistoryEntry> & Pick<HistoryEntry, 'kind'>): His
   return {
     id: partial.id ?? `id-${partial.kind}`,
     kind: partial.kind,
+    account: partial.account ?? '0x000000000000000000000000000000000000c0de',
     amount: partial.amount ?? (100n * WAD).toString(),
     quoteAmount: partial.quoteAmount ?? null,
     pool: partial.pool ?? null,

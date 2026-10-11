@@ -109,6 +109,7 @@ export function portfolioTotal(rows: readonly HoldingRow[], pendingDividends: bi
 export type HistoryEntry = {
   id: string
   kind: string
+  account: string
   amount: Quantity
   quoteAmount: Quantity | null
   pool: string | null

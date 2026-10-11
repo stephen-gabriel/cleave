@@ -42,6 +42,10 @@ export const queries = {
     Swap(where: {chainId: {_eq: $chain}, pool_id: {_eq: $pool}}, order_by: [{timestamp: desc}, {id: desc}], limit: $limit) {
       id pool_id trader isBuy amountToken amountQuote price timestamp isSimulated txHash
     } }`, { chain: CHAIN, pool: address(pool), limit: limit(count) }, 'Swap'),
+  swapsAll: (count = 200) => query<Swap[]>('swapsAll', `query SwapsAll($chain: Int!, $limit: Int!) {
+    Swap(where: {chainId: {_eq: $chain}}, order_by: [{timestamp: desc}, {id: desc}], limit: $limit) {
+      id pool_id trader isBuy amountToken amountQuote price timestamp isSimulated txHash
+    } }`, { chain: CHAIN, limit: limit(count) }, 'Swap'),
   hourly: (pool: string, count = 168) => query<PoolHourly[]>('hourly', `query Hourly($chain: Int!, $pool: String!, $limit: Int!) {
     PoolHourly(where: {chainId: {_eq: $chain}, pool_id: {_eq: $pool}}, order_by: {hour: desc}, limit: $limit) {
       id pool_id hour open high low close volumeUsd trades
