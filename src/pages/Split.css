@@ -13,6 +13,10 @@
   align-items: start;
 }
 
+.split__grid > * {
+  min-width: 0;
+}
+
 .split__rail {
   display: flex;
   flex-direction: column;
@@ -221,6 +225,23 @@
   flex: 1;
   min-width: 0;
   transition: transform 1.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Narrow screens — stack the two leg cards instead of side-by-side
+   (side-by-side overflows the viewport at 320–390px). */
+@media (max-width: 560px) {
+  .splitflow__legs {
+    flex-direction: column;
+  }
+
+  .splitflow__stem:not(.splitflow__stem--merge) {
+    display: none;
+  }
+
+  .splitflow--anim .splitflow__legs > :first-child,
+  .splitflow--anim .splitflow__legs > :last-child {
+    transform: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

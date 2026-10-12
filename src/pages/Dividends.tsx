@@ -443,7 +443,7 @@ function NextDividendPanel({
         </div>
         <p className="next-dividend__note">
           {distributedCount} of {plannedDividends} dividends distributed.{' '}
-          <Link to="/trade/dividend">See the repricing on Trade \u2192</Link>
+          <Link to="/trade/dividend">See the repricing on Trade →</Link>
         </p>
       </section>
     )

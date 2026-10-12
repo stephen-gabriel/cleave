@@ -499,7 +499,7 @@ function SplitTab({
       ) : exceedsBalance ? (
         <p className="field-error">Not enough mACME.</p>
       ) : offline && !loading ? (
-        <p className="field-error">Live data delayed \u2014 try again in a moment.</p>
+        <p className="field-error">Live data delayed — try again in a moment.</p>
       ) : null}
 
       <div className={`splitflow${animating ? ' splitflow--anim' : ''}`} aria-hidden="true">
@@ -532,8 +532,8 @@ function SplitTab({
         <div className="split__whatnext">
           <ConfirmationChip seconds={last.result.seconds} txHash={last.result.hash} label={last.label} />
           <span className="split__whatnext-links">
-            <Link to="/trade/price">Trade your legs \u2192</Link>
-            <Link to="/dividends">See dividends \u2192</Link>
+            <Link to="/trade/price">Trade your legs →</Link>
+            <Link to="/dividends">See dividends →</Link>
           </span>
         </div>
       )}
@@ -582,11 +582,11 @@ function MergeTab({
       <div className="split__tab">
         <label className="amount">
           <span className="amount__label">Redeem</span>
-          <span className="amount__value mono">{balanceText(priceBalance)} pACME-A \u2192 {balanceText(priceBalance)} mACME</span>
+          <span className="amount__value mono">{balanceText(priceBalance)} pACME-A → {balanceText(priceBalance)} mACME</span>
         </label>
         <div className="amount" style={{ paddingTop: 8 }}>
           <span className="amount__label">Dividend leg</span>
-          <span className="amount__value mono muted">{balanceText(divBalance)} dACME-A \u2014 expired</span>
+          <span className="amount__value mono muted">{balanceText(divBalance)} dACME-A — expired</span>
         </div>
         <p className="muted">
           Series has matured. Redeem Price legs for stock instead. Dividend legs are worth nothing
@@ -748,7 +748,7 @@ function LegCard({
       <span className="legcard__receive">
         You receive <strong>{amount}</strong>
       </span>
-      {fair !== null && <span className="mono legcard__fair">Fair value \u2248 ${fair.toFixed(2)} each</span>}
+      {fair !== null && <span className="mono legcard__fair">Fair value ≈ ${fair.toFixed(2)} each</span>}
       {tagline !== null && <span className="legcard__tagline">{tagline}</span>}
     </div>
   )
@@ -831,7 +831,7 @@ function StarterPack({
         <span className="starter__ring" aria-hidden>
           <Ring done={3} total={3} />
         </span>
-        <span>Starter pack claimed \u2713</span>
+        <span>Starter pack claimed ✓</span>
         <span className="starter__explainer">Test tokens only. They have no value.</span>
       </section>
     )
@@ -979,8 +979,8 @@ function SeriesCard({
         <div>
           <dt>Dividends</dt>
           <dd className="mono">
-            planned {loading ? '\u2026' : series.plannedDividends ?? '\u2014'} \u00b7 paid{' '}
-            {loading ? '\u2026' : series.distributedCount ?? '\u2014'} \u00b7 remaining{' '}
+            planned {loading ? '\u2026' : series.plannedDividends ?? '\u2014'} · paid{' '}
+            {loading ? '\u2026' : series.distributedCount ?? '\u2014'} · remaining{' '}
             {loading ? '\u2026' : series.remainingDividends ?? '\u2014'}
           </dd>
         </div>

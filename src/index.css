@@ -470,11 +470,24 @@ h3 {
   margin: 0 auto;
   padding: 32px var(--space-page) 80px;
   min-height: calc(100vh - var(--topbar-h) - var(--tabs-h));
+  flex: 1 0 auto;
+}
+
+/* Shell — flex column so the footer stays clear of the fixed bottom bar
+   on short (signed-out) pages; main grows to fill. */
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
 @media (max-width: 767px) {
+  .shell {
+    min-height: 100dvh;
+  }
+
   .main {
-    padding: 20px 16px 96px;
+    padding: 20px 16px calc(var(--bottombar-h) + env(safe-area-inset-bottom) + 24px);
   }
 }
 
@@ -501,7 +514,7 @@ h3 {
 
 @media (max-width: 767px) {
   .footer {
-    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    padding-bottom: calc(var(--bottombar-h) + env(safe-area-inset-bottom) + 16px);
   }
 }
 

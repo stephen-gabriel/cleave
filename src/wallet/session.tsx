@@ -3,11 +3,13 @@ import type { ReactNode } from 'react'
 import { createWalletClient, formatEther, formatGwei, http } from 'viem'
 import type { Abi, Address } from 'viem'
 import { monadTestnet } from 'viem/chains'
-import { createAccount, signIn, publicClient, type PasskeyWallet } from './mera'
+import { isMeraError } from '@category-labs/mera'
+import { createAccount, signIn, publicClient, describeError, type PasskeyWallet } from './mera'
 import { RPC_URL } from '../chain/clients'
 import { ALLOWLIST } from '../chain/addresses'
 import { reportConfirmedTx, startTxTimer } from '../lib/timing'
 import { buildTxDiagnostics, rememberTxCause, txFailureLogLine } from './txFailure'
+import { toastError } from '../ui/toast'
 
 export const SESSION_MS = 15 * 60 * 1000
 export const SESSION_CAP_USD = 5000
@@ -134,14 +136,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setMonBalance(null)
     spentUsdRef.current = 0
     setSpentUsd(0)
+    // An intentional lock must never replay the last attempted send on the
+    // next sign-in.
+    setPendingAction(null)
   }, [])
 
   const handleSend = useCallback(async (params: SendParams): Promise<SendResult> => {
     const opened = walletRef.current
     if (opened === null) throw new Error('Not signed in')
-
-    // Set pending action for potential session expiry retry
-    setPendingAction({ type: 'send', params })
 
     const target = params.to.toLowerCase()
     if (!ALLOWLIST.some((entry) => entry.toLowerCase() === target)) {
@@ -150,6 +152,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         'This action is outside your session scope and needs your passkey.',
       )
     }
+
+    // Set pending action for potential session expiry retry
+    setPendingAction({ type: 'send', params })
 
     const finish = startTxTimer()
     const client = createWalletClient({
@@ -199,6 +204,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         maxFeePerGas,
       })
     } catch (error) {
+      // Only a dead signing session is worth retrying after re-auth; any other
+      // failure (revert, RPC error, policy) would replay a stale action later.
+      if (!(isMeraError(error) && error.code === 'SESSION_ENDED')) {
+        setPendingAction(null)
+      }
       let monBalance: bigint | null = null
       try {
         monBalance = await publicClient.getBalance({ address: opened.account.address })
@@ -235,7 +245,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const isFirst = reportConfirmedTx(hash, seconds).isFirst
     clearPendingAction()
     return { hash, seconds, isFirst }
-  }, [])
+  }, [clearPendingAction])
 
   const handleExtend = useCallback(async () => {
     const opened = await signIn()
@@ -245,12 +255,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (pendingAction && pendingAction.type === 'send') {
       try {
         await handleSend(pendingAction.params)
-      } catch {
-        // Error will be handled by caller
+      } catch (error) {
+        toastError(describeError(error))
       }
     }
     clearPendingAction()
-  }, [applyWallet, readBalance, pendingAction, handleSend])
+  }, [applyWallet, readBalance, pendingAction, handleSend, clearPendingAction])
 
   const handleSignIn = useCallback(async () => {
     const opened = await signIn()
@@ -260,12 +270,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (pendingAction && pendingAction.type === 'send') {
       try {
         await handleSend(pendingAction.params)
-      } catch {
-        // Error will be handled by caller
+      } catch (error) {
+        toastError(describeError(error))
       }
     }
     clearPendingAction()
-  }, [applyWallet, readBalance, pendingAction, handleSend])
+  }, [applyWallet, readBalance, pendingAction, handleSend, clearPendingAction])
 
   useEffect(() => {
     if (wallet === null) return
