@@ -311,6 +311,7 @@ h3 {
   background: none;
   border: 0;
   padding: 0;
+  flex-shrink: 0;
 }
 
 .topbar__brand:hover {
@@ -320,20 +321,41 @@ h3 {
 
 .topbar__spacer {
   flex: 1;
+  min-width: 0;
 }
 
 .topbar__right {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 @media (max-width: 767px) {
   .topbar {
     padding: 0 16px;
+    height: auto;
+    min-height: var(--topbar-h);
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 8px;
+    padding-bottom: 8px;
   }
   .topbar__wordmark {
     display: none;
+  }
+  .topbar__brand {
+    flex: 1 0 auto;
+  }
+  .topbar__spacer {
+    display: none;
+  }
+  .topbar__right {
+    width: 100%;
+    justify-content: center;
+    gap: 8px;
+    order: 1;
   }
 }
 
@@ -643,6 +665,7 @@ h3 {
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
+  min-width: 0;
 }
 
 .account-chip:hover {
@@ -660,22 +683,31 @@ h3 {
   flex-direction: column;
   align-items: flex-start;
   line-height: 1.25;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .account-chip__addr {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
   font-size: var(--fs-14);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .account-chip__mon {
   font-size: 11px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .account-chip__chev {
   color: var(--muted);
+  flex: none;
 }
 
 /* Session sheet — popover desktop / bottom sheet mobile */
