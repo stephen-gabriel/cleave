@@ -352,7 +352,7 @@ function NextDividendPanel({
           <span className="chip chip--none">None pending</span>
         </div>
         <p className="next-dividend__empty">
-          No dividend declared. The next one arrives via the Chainlink feed.
+          No dividend declared. In production the next one is published by the Chainlink CRE workflow. You can trigger a demo dividend below.
         </p>
         <div className="next-dividend__actions">
           <button
@@ -424,7 +424,7 @@ function NextDividendPanel({
           {phase === 'distributing' ? `Distributing\u2026 ${elapsed.toFixed(1)} s` : 'Pay dividend'}
         </button>
         <p className="next-dividend__cre-note">
-          In production this is triggered automatically by the Chainlink CRE workflow.
+          In production this is triggered automatically by the Chainlink CRE workflow. Demo dividends are manual.
         </p>
       </section>
     )
