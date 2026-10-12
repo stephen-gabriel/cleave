@@ -27,8 +27,10 @@ export interface BotConfig {
   medianUsd: number
   maxTradeUsd: number
   minSplits: number
+  minTrades: number
   minMon: number
   maxConsecutiveFailures: number
+  walletIndex: number
 }
 
 export const DEFAULT_CONFIG: BotConfig = {
@@ -44,8 +46,10 @@ export const DEFAULT_CONFIG: BotConfig = {
   medianUsd: 50,
   maxTradeUsd: 500,
   minSplits: 0,
+  minTrades: 0,
   minMon: 0.01,
   maxConsecutiveFailures: 10,
+  walletIndex: 0,
 }
 
 export const ACTION_WEIGHTS = {
@@ -199,11 +203,17 @@ export function parseArgs(argv: readonly string[]): { command: string; config: B
       case '--min-splits':
         config.minSplits = parseIntFlag(next(), flag)
         break
+      case '--min-trades':
+        config.minTrades = parseIntFlag(next(), flag)
+        break
       case '--min-mon':
         config.minMon = parseFloatFlag(next(), flag)
         break
       case '--max-consecutive-failures':
         config.maxConsecutiveFailures = parseIntFlag(next(), flag)
+        break
+      case '--wallet-index':
+        config.walletIndex = parseIntFlag(next(), flag)
         break
       case '--count':
         count = parseIntFlag(next(), flag)
@@ -382,18 +392,34 @@ export class TxBudget {
   maxGasWei: bigint
   txCount = 0
   gasSpentWei = 0n
+  reservedTxCount = 0
+  reservedGasWei = 0n
 
   constructor(maxTxs: number, maxGasMon: number) {
     this.maxTxs = maxTxs
     this.maxGasWei = monToWei(maxGasMon)
   }
 
-  canConfirm(): boolean {
-    return this.txCount < this.maxTxs
+  canConfirm(count = 1): boolean {
+    return this.txCount + this.reservedTxCount + count <= this.maxTxs
   }
 
   wouldExceedGas(estimateCostWei: bigint): boolean {
-    return this.gasSpentWei + estimateCostWei > this.maxGasWei
+    return this.gasSpentWei + this.reservedGasWei + estimateCostWei > this.maxGasWei
+  }
+
+  reserve(count: number, estimateCostWei: bigint): boolean {
+    if (!this.canConfirm(count) || this.wouldExceedGas(estimateCostWei)) {
+      return false
+    }
+    this.reservedTxCount += count
+    this.reservedGasWei += estimateCostWei
+    return true
+  }
+
+  release(count: number, estimateCostWei: bigint): void {
+    this.reservedTxCount = Math.max(0, this.reservedTxCount - count)
+    this.reservedGasWei = this.reservedGasWei > estimateCostWei ? this.reservedGasWei - estimateCostWei : 0n
   }
 
   recordSuccess(gasCostWei: bigint): void {
@@ -566,8 +592,17 @@ export async function runLoop(deps: LoopDeps): Promise<RunSummary> {
       break
     }
 
-    if (!budget.canConfirm() || budget.wouldExceedGas(action.estimateGasCostWei)) {
-      summary.stopReason = budget.canConfirm() ? 'max gas reached' : 'max txs reached'
+    const needsApproval = action.kind.startsWith('buy-') || action.kind.startsWith('sell-') || action.kind === 'split'
+    const txCount = needsApproval ? 2 : 1
+
+    if (!budget.canConfirm(txCount) || budget.wouldExceedGas(action.estimateGasCostWei)) {
+      summary.stopReason = budget.canConfirm(txCount) ? 'max gas reached' : 'max txs reached'
+      break
+    }
+
+    const reserved = budget.reserve(txCount, action.estimateGasCostWei)
+    if (!reserved) {
+      summary.stopReason = budget.canConfirm(txCount) ? 'max gas reached' : 'max txs reached'
       break
     }
 
@@ -578,10 +613,12 @@ export async function runLoop(deps: LoopDeps): Promise<RunSummary> {
       result = { ok: false, error: String(error) }
     }
 
+    const gasCost = (result.gasUsed ?? 0n) * (result.gasPriceWei ?? 0n)
+
     if (result.ok) {
+      budget.release(txCount, action.estimateGasCostWei)
       failures.recordSuccess(wallet)
       consecutiveGlobalFailures = 0
-      const gasCost = (result.gasUsed ?? 0n) * (result.gasPriceWei ?? 0n)
       budget.recordSuccess(gasCost)
       summary.gasSpentWei += gasCost
       countKind(summary, action.kind)
@@ -591,6 +628,8 @@ export async function runLoop(deps: LoopDeps): Promise<RunSummary> {
         `ok   ${shortAddr(wallet)} ${action.kind}${action.kind === 'split' || action.kind === 'merge' ? ` (${splitsDone} splits)` : ''} ${result.hash ?? ''}`.trimEnd(),
       )
     } else {
+      budget.release(txCount, action.estimateGasCostWei)
+      budget.recordFailureGas(gasCost)
       summary.failed += 1
       consecutiveGlobalFailures += 1
       const waitMs = failures.recordFailure(wallet, deps.now())

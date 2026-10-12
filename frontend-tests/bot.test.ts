@@ -491,8 +491,17 @@ describe('runLoop', () => {
   })
 
   it('stops at max-txs', async () => {
-    const { summary } = await runMockLoop({ maxTxs: 4 })
+    const { summary } = await runMockLoop({
+      maxTxs: 5,
+      prepare: async (): Promise<PlannedAction | null> => ({
+        kind: 'split',
+        describe: 'split',
+        estimateGasCostWei: 0n,
+        params: { amount: E },
+      }),
+    })
     expect(summary.txCount).toBe(4)
+    expect(summary.splits).toBe(4)
     expect(summary.stopReason).toBe('max txs reached')
   })
 

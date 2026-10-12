@@ -4,6 +4,7 @@ import {
   createPublicClient,
   createWalletClient,
   encodeFunctionData,
+  getAddress,
   http,
   parseAbi,
   type Abi,
@@ -27,6 +28,7 @@ import {
   shortAddr,
   usdWadFromNumber,
   ShutdownController,
+  TxBudget,
   type BotConfig,
   type BotView,
   type PlannedAction,
@@ -125,6 +127,11 @@ interface Addresses {
 }
 
 interface DeploymentFile {
+  network: string
+  chainId: number
+  deployBlock: number
+  deployer: Address
+  forwarder: Address
   contracts: Record<string, { address: Address; block: number }>
 }
 
@@ -188,10 +195,15 @@ class ChainGateway {
   addresses: Addresses
   nonces = new Map<string, number>()
   maxFeePerGas = 0n
+  dryRun = false
 
   constructor(publicClient: PublicClient, addresses: Addresses) {
     this.publicClient = publicClient
     this.addresses = addresses
+  }
+
+  setDryRun(enabled: boolean): void {
+    this.dryRun = enabled
   }
 
   async refreshFee(): Promise<bigint> {
@@ -219,6 +231,9 @@ class ChainGateway {
   }
 
   async send(account: PrivateKeyAccount, to: Address, data: `0x${string}`): Promise<TxResult> {
+    if (this.dryRun) {
+      return { ok: false, error: 'dry-run: broadcast not allowed' }
+    }
     if (this.maxFeePerGas === 0n) await this.refreshFee()
     let gasLimit: bigint
     try {
@@ -411,7 +426,8 @@ async function planLoopAction(
     const pool = kind === 'buy-div' ? addresses.poolDiv : addresses.poolPrice
     const usdIn = usdWadFromNumber(lognormalSizeUsd(rng, config.medianUsd, config.maxTradeUsd))
     if (usdIn <= 0n || usdIn > wallet.mUsdBalance) return null
-    const quote = await gateway.read<bigint>(pool, POOL_ABI, 'getAmountOut', [false, usdIn])
+    const quoteTuple = await gateway.read<[bigint, bigint, bigint]>(pool, POOL_ABI, 'getAmountOut', [false, usdIn])
+    const quote = quoteTuple[0]
     if (quote <= 0n) return null
     const min = applySlippage(quote, config.slippageBps)
     const estimated = declaredGas(await gateway.estimate(
@@ -437,7 +453,8 @@ async function planLoopAction(
     let legIn = legAmountForUsd(usdTarget, p)
     if (legIn <= 0n) legIn = legBal / 10n
     if (legIn <= 0n || legIn > legBal) return null
-    const quote = await gateway.read<bigint>(pool, POOL_ABI, 'getAmountOut', [true, legIn])
+    const quoteTuple = await gateway.read<[bigint, bigint, bigint]>(pool, POOL_ABI, 'getAmountOut', [true, legIn])
+    const quote = quoteTuple[0]
     if (quote <= 0n) return null
     const min = applySlippage(quote, config.slippageBps)
     const estimated = declaredGas(await gateway.estimate(
@@ -546,6 +563,29 @@ async function executeSetupTx(
   return result
 }
 
+async function executeSetupWithBudget(
+  gateway: ChainGateway,
+  account: PrivateKeyAccount,
+  tx: SetupTx,
+  execute: boolean,
+  budget: TxBudget,
+): Promise<TxResult> {
+  if (!budget.canConfirm(1) || budget.wouldExceedGas(gateway.gasCostWei(tx.estimatedGas))) {
+    logLine(`setup skip ${shortAddr(account.address)}: budget exhausted (${tx.describe})`)
+    return { ok: false, error: 'budget exhausted' }
+  }
+  budget.reserve(1, gateway.gasCostWei(tx.estimatedGas))
+  const result = await executeSetupTx(gateway, account, tx, execute)
+  const gasCost = (result.gasUsed ?? 0n) * (result.gasPriceWei ?? 0n)
+  budget.release(1, gateway.gasCostWei(tx.estimatedGas))
+  if (result.ok) {
+    budget.recordSuccess(gasCost)
+  } else {
+    budget.recordFailureGas(gasCost)
+  }
+  return result
+}
+
 async function executePlanned(
   gateway: ChainGateway,
   account: PrivateKeyAccount,
@@ -631,12 +671,15 @@ async function runBot(config: BotConfig): Promise<void> {
   if (chainId !== 10143) throw new Error(`Expected chain 10143, got ${chainId}`)
 
   const gateway = new ChainGateway(publicClient, addresses)
+  gateway.setDryRun(!config.execute)
   await gateway.refreshFee()
   const accounts = new Map<string, PrivateKeyAccount>()
   for (const key of keys) {
     const account = privateKeyToAccount(key as `0x${string}`)
     accounts.set(account.address.toLowerCase(), account)
   }
+
+  const setupBudget = new TxBudget(config.maxTxs, config.maxGasMon)
 
   logLine(
     `bot starting: ${addressesList.length} wallets, execute=${config.execute}, burst=${config.burst ?? 'none'}, maxTxs=${config.maxTxs}, maxGas=${config.maxGasMon} MON`,
@@ -652,7 +695,7 @@ async function runBot(config: BotConfig): Promise<void> {
       continue
     }
     for (const tx of setupTxs) {
-      const result = await executeSetupTx(gateway, account, tx, config.execute)
+      const result = await executeSetupWithBudget(gateway, account, tx, config.execute, setupBudget)
       if (!result.ok && config.execute) {
         logLine(`setup issue ${shortAddr(address)}: ${result.error ?? 'unknown'}`)
       }
@@ -737,11 +780,19 @@ function cmdGenerateWallets(count: number, force: boolean): void {
   logLine(`  keys:   ${envPath} (gitignored, mode 600)`)
   logLine(`  public: ${simPath}`)
   for (const a of addresses) logLine(`  ${a}`)
+  logLine('')
+  logLine('SIM wallet configuration (for Cleave-Envio/src/config/sim-wallets.json):')
+  const normalized = [...addresses]
+    .map((a) => getAddress(a))
+    .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+  logLine(JSON.stringify({ wallets: normalized }, null, 2))
+  logLine('')
   logLine('next steps:')
   logLine('  1. npm run bot -- fund --mon 0.12            (dry-run; add --execute to send)')
   logLine('     ~0.12 MON/wallet covers ~4 swaps + 1 split/merge + claim at current gas prices')
-  logLine('  2. copy the public addresses into Cleave-Envio/src/config/sim-wallets.json')
-  logLine('  3. commit + push both repos, redeploy the Envio indexer, then run a small batch')
+  logLine('  2. Copy the above JSON into Cleave-Envio/src/config/sim-wallets.json')
+  logLine('  3. Commit + push Cleave-Envio repo, redeploy the Envio indexer, then run a small batch')
+  logLine('  4. Main Cleave repository pushes do NOT automatically redeploy Envio')
 }
 
 async function cmdFund(mon: number, execute: boolean): Promise<void> {
@@ -756,38 +807,55 @@ async function cmdFund(mon: number, execute: boolean): Promise<void> {
   if (keys.length === 0) throw new Error('No BOT_PRIVATE_KEYS in .env.bot')
   const addresses = addressesFromKeys(keys)
   const publicClient = createPublicClient({ chain: monadTestnet, transport: http() })
+
+  const chainId = await publicClient.getChainId()
+  if (chainId !== 10143) throw new Error(`Expected chain 10143, got ${chainId}`)
+
+  const deployment = loadDeploymentSync()
+  const expectedDeployer = deployment.deployer
   const deployer = privateKeyToAccount(
     (deployerKey.startsWith('0x') ? deployerKey : `0x${deployerKey}`) as `0x${string}`,
   )
+  if (deployer.address.toLowerCase() !== expectedDeployer.toLowerCase()) {
+    throw new Error(`Deployer address mismatch: expected ${expectedDeployer}, got ${deployer.address}`)
+  }
+
   const walletClient = createWalletClient({ account: deployer, chain: monadTestnet, transport: http() })
   const value = BigInt(Math.round(mon * 1e18))
   const deployerBal = await publicClient.getBalance({ address: deployer.address })
-  const totalNeeded = value * BigInt(addresses.length) + 10n ** 16n
-  logLine(`deployer ${deployer.address} balance ${Number(deployerBal) / 1e18} MON`)
+
+  const fees = await publicClient.estimateFeesPerGas()
+  const maxFeePerGas = fees.maxFeePerGas ?? fees.gasPrice ?? 0n
+  const gasPerTransfer = NATIVE_TRANSFER_GAS * 125n / 100n
+  const gasBuffer = gasPerTransfer * BigInt(addresses.length) * maxFeePerGas
+  const totalNeeded = value * BigInt(addresses.length) + gasBuffer + 10n ** 16n
+  logLine(`deployer ${shortAddr(deployer.address)} balance ${Number(deployerBal) / 1e18} MON`)
   if (deployerBal < totalNeeded) {
-    throw new Error(`deployer needs >= ${Number(totalNeeded) / 1e18} MON for ${addresses.length} wallets`)
+    throw new Error(`deployer needs >= ${Number(totalNeeded) / 1e18} MON for ${addresses.length} wallets (value + gas buffer + safety margin)`)
   }
 
   for (const address of addresses) {
     const target = address as Address
     const bal = await publicClient.getBalance({ address: target })
     if (bal >= value) {
-      logLine(`skip ${address}: already has ${Number(bal) / 1e18} MON`)
+      logLine(`skip ${target}: already has ${Number(bal) / 1e18} MON`)
       continue
     }
     if (!execute) {
-      logLine(`dry-run would send ${mon} MON to ${address}`)
+      logLine(`dry-run would send ${mon} MON to ${target}`)
       continue
     }
-    const fees = await publicClient.estimateFeesPerGas()
     const hash = await walletClient.sendTransaction({
       to: target,
       value,
-      gas: NATIVE_TRANSFER_GAS,
-      maxFeePerGas: fees.maxFeePerGas ?? fees.gasPrice,
+      gas: gasPerTransfer,
+      maxFeePerGas,
     })
-    const receipt = await publicClient.waitForTransactionReceipt({ hash })
-    logLine(`funded ${address}: ${receipt.status} ${hash}`)
+    const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 })
+    if (receipt.status !== 'success') {
+      throw new Error(`funding failed for ${target}: tx reverted ${hash}`)
+    }
+    logLine(`funded ${target}: ${receipt.status} ${hash}`)
     await sleep(500)
   }
 }
@@ -880,18 +948,42 @@ async function cmdVerify(graphql: string | null, minTrades: number, minSplits: n
   const simSwaps = (swapsData.Swap as unknown[] | undefined)?.length ?? 0
   logLine(`simulated Swaps (indexed, up to 1000): ${simSwaps}`)
 
-  const tradesOk = simSwaps >= minTrades || tradeCount >= minTrades
+  const indexerStatus = await post(
+    `query {
+      _meta { block { number } }
+    }`,
+    {},
+  )
+  const currentBlock = (indexerStatus._meta as { block?: { number: number } } | undefined)?.block?.number
+  if (currentBlock) {
+    logLine(`indexer head block: ${currentBlock}`)
+  }
+
+  const classifierCheck = await post(
+    `query ($chain: Int!) {
+      SimulatedClassifier(where: {chainId: {_eq: $chain}}, limit: 1) { id address }
+    }`,
+    { chain: 10143 },
+  )
+  const classifier = (classifierCheck.SimulatedClassifier as Array<Record<string, unknown>> | undefined)?.[0]
+  if (classifier) {
+    logLine(`classifier registered: ${classifier.address} (id: ${classifier.id})`)
+  } else {
+    logLine('WARNING: no SimulatedClassifier registered for chain 10143')
+  }
+
+  const tradesOk = simSwaps >= minTrades
   const splitsOk = splits >= minSplits
   logLine(
-    `target check: >=${minTrades} trades ${tradesOk ? 'OK' : 'NOT MET'}, >=${minSplits} splits ${splitsOk ? 'OK' : 'NOT MET'}`,
+    `target check: >=${minTrades} trades ${tradesOk ? 'OK' : 'NOT MET'} (indexed sim swaps: ${simSwaps}), >=${minSplits} splits ${splitsOk ? 'OK' : 'NOT MET'} (indexed sim splits: ${splits})`,
   )
-  logLine('note: Market chart shows the latest 200 swaps only; ProtocolStats.tradeCount is cumulative.')
+  logLine('note: Only indexed simulated swaps/splits count toward verification. ProtocolStats.tradeCount is NOT used.')
   if (!tradesOk || !splitsOk) process.exitCode = 1
 }
 
 function usage(): void {
   console.log(`Usage:
-  npm run bot -- [run] [--burst N] [--minutes M] [--max-txs N] [--max-gas-mon X] [--execute] [--min-splits N]
+  npm run bot -- [run] [--burst N] [--minutes M] [--max-txs N] [--max-gas-mon X] [--execute] [--min-splits N] [--min-trades N] [--wallet-index N]
   npm run bot -- generate-wallets [--count N] [--force]
   npm run bot -- fund [--mon X] [--execute]
   npm run bot -- estimate-gas
@@ -936,7 +1028,7 @@ async function main(): Promise<void> {
     return
   }
   if (command === 'verify') {
-    const minTrades = config.burst ?? 300
+    const minTrades = config.minTrades > 0 ? config.minTrades : (config.burst ?? 300)
     const minSplits = config.minSplits > 0 ? config.minSplits : 20
     await cmdVerify(graphql, minTrades, minSplits)
     return
