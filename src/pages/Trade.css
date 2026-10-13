@@ -24,6 +24,10 @@
   .trade__grid {
     grid-template-columns: 1fr;
   }
+
+  .ticket {
+    position: static;
+  }
 }
 
 /* ==========================================================================
@@ -487,6 +491,10 @@
   border: 1px dashed var(--border);
   border-radius: var(--radius-control);
   font-size: var(--fs-14);
+}
+
+.feed__tablewrap {
+  overflow-x: auto;
 }
 
 .feed__table {

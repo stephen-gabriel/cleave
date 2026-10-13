@@ -1240,37 +1240,39 @@ function TradesFeed({
               : 'No trades yet — be the first.'}
         </p>
       ) : (
-        <table className="feed__table mono">
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Side</th>
-              <th>Size ({ticker})</th>
-              <th>Price</th>
-              <th>Trader</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, index) => {
-              const mine = me !== null && row.trader.toLowerCase() === me
-              const sim = row.isSimulated || SIM_WALLETS.has(row.trader.toLowerCase())
-              return (
-                <tr key={`${row.id}-${index}`} className={mine ? 'feed__row--mine' : undefined}>
-                  <td className="feed__time">{timeAgo(row.timestamp)}</td>
-                  <td>
-                    <span className={`feed__side${row.isBuy ? ' feed__side--buy' : ' feed__side--sell'}`}>
-                      {row.isBuy ? 'Buy' : 'Sell'}
-                    </span>
-                    {sim && <span className="feed__sim" title="Simulated test wallet">SIM</span>}
-                  </td>
-                  <td>{formatAmount(BigInt(row.amountToken))}</td>
-                  <td>{formatPrice(Number(row.price))}</td>
-                  <td className="feed__trader">{shortAddress(row.trader)}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+        <div className="feed__tablewrap">
+          <table className="feed__table mono">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Side</th>
+                <th>Size ({ticker})</th>
+                <th>Price</th>
+                <th>Trader</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, index) => {
+                const mine = me !== null && row.trader.toLowerCase() === me
+                const sim = row.isSimulated || SIM_WALLETS.has(row.trader.toLowerCase())
+                return (
+                  <tr key={`${row.id}-${index}`} className={mine ? 'feed__row--mine' : undefined}>
+                    <td className="feed__time">{timeAgo(row.timestamp)}</td>
+                    <td>
+                      <span className={`feed__side${row.isBuy ? ' feed__side--buy' : ' feed__side--sell'}`}>
+                        {row.isBuy ? 'Buy' : 'Sell'}
+                      </span>
+                      {sim && <span className="feed__sim" title="Simulated test wallet">SIM</span>}
+                    </td>
+                    <td>{formatAmount(BigInt(row.amountToken))}</td>
+                    <td>{formatPrice(Number(row.price))}</td>
+                    <td className="feed__trader">{shortAddress(row.trader)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
       <p className="feed__note">Live from the indexer · SIM = simulated test wallet.</p>
     </section>
