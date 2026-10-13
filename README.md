@@ -135,7 +135,13 @@ Cleave has no wallet, extension, seed phrase, email, or custody backend. A singl
 | Bot / test-wallet volume | **Simulated**, labelled SIM in the UI |
 | Passkey accounts, sessions, drip faucet | **Real** Mera flows |
 
-We show simulated vs organic volume honestly on the Market page.
+A bounded simulation bot executed testnet swaps and splits. Envio indexes this activity and
+labels registered bot-wallet transactions as SIM, separating simulated volume from other
+activity (`organic` = outside the registered bot-wallet list).
+
+**Activity checkpoint (verified at the Envio endpoint above, 2026-10-13):** 20 indexed
+simulated swaps and 20 indexed simulated splits. The Market page shows simulated vs organic
+volume honestly.
 
 ## Known limitations
 
@@ -167,8 +173,6 @@ powershell -File .\scripts\scan-secrets.ps1
 ## Team & license
 
 Solo builder. Hackathon demo on Monad Testnet — not a live exchange, not financial advice.
-
-Licensed under the [MIT License](./LICENSE).
 
 Licensed under the [MIT License](./LICENSE).
 

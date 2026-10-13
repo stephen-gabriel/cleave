@@ -39,6 +39,11 @@ export default function Judges() {
           <li>Fair value + price impact + risk disclosure on every trade ticket.</li>
           <li>CRE-driven dividend badge on Dividends (declare → countdown → pay → claim).</li>
           <li>Market page splits volume into simulated vs organic, honestly.</li>
+          <li>
+            A bounded simulation bot executed testnet swaps and splits — Envio labels registered
+            bot-wallet transactions as SIM, separating simulated volume from other activity (20
+            sim swaps / 20 sim splits, verified 2026-10-13).
+          </li>
           <li>Everything is mock assets on Monad Testnet — labelled in the UI.</li>
         </ul>
       </section>

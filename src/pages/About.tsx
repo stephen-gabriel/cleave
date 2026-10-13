@@ -35,9 +35,11 @@ export default function About() {
         <p className="muted" style={{ marginTop: 8 }}>
           Contracts, settlement, pricing math, passkey accounts and the CRE→oracle→Splitter path are
           real on Monad Testnet. The stock and USD are mock tokens. The CRE dividend feed is a labelled
-          simulated endpoint because real tokenized-equity feeds are not available on testnet. Volume
-          labelled SIM comes from our own test wallets and is shown separately from organic volume on
-          the Market page.
+          simulated endpoint because real tokenized-equity feeds are not available on testnet. A
+          bounded simulation bot executed testnet swaps and splits; Envio indexes this activity
+          and labels registered bot-wallet transactions as SIM, separating simulated volume from
+          other activity ("organic" = outside the registered bot-wallet list). Checkpoint
+          verified 2026-10-13: 20 indexed simulated swaps and 20 indexed simulated splits.
         </p>
       </section>
 

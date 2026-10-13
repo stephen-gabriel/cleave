@@ -38,6 +38,7 @@ Agent: same rules as Milestone 01. Commit and push at the end of every task. `ui
 ## T2.8 Bot and simulated volume (1.5 h)
 - Implement `frd.md` §7. Generate wallets, fund with MON, write `config/sim-wallets.json`. Run `--burst 300`, then a 20-minute run. If time allows, ask up to ~3 friends to try the live app (optional bonus, not a dependency).
 - **Accept:** ≥ 300 simulated trades and ≥ 20 splits visible on the Market page, labelled SIM; no failed-tx spam (bot backs off on errors).
+  - **Status 2026-10-13 — closed without completion.** Bounded runs indexed 20 simulated swaps and 20 simulated splits (splits ≥20 met; swaps 20/300; 20-minute continuous run not achieved — runs ended on gas/skip conditions). Original plan and acceptance kept above as history. See `docs/decisions.md`.
 
 ### Milestone 2 exit checklist
 - [ ] CRE simulation recorded, declaration visible in UI with CRE badge

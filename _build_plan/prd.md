@@ -50,6 +50,7 @@ Legs trade against mUSD in on-chain pools. 1 Price leg + 1 Dividend leg can alwa
 - Time from landing to first confirmed transaction ≤ 45 s with ≤ 2 passkey prompts.
 - Clearing site data then signing in reproduces address and balances 100% of the time.
 - ≥ 300 simulated trades and ≥ 20 splits visible in Envio-powered stats at submission, labelled simulated; plus any real tester wallets (bonus).
+  - **Status 2026-10-13 — closed without completion.** Bounded runs indexed 20 simulated swaps and 20 simulated splits (splits target met; swaps 20/300) before testnet gas/funding ceilings stopped further runs; the 20-minute continuous run was not achieved. Original target kept above as plan history — not a submission claim. See `docs/decisions.md`.
 - Zero console errors on the demo path.
 
 ## 6. Rubric mapping
