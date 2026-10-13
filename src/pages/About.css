@@ -1,0 +1,34 @@
+/* About & Judges content pages */
+
+.about {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 720px;
+}
+
+.about h2 {
+  font-size: var(--fs-20);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.about ol,
+.about ul {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.about li + li {
+  margin-top: 8px;
+}
+
+.about a {
+  color: var(--focus);
+}
+
+@media (max-width: 767px) {
+  .about {
+    gap: 12px;
+  }
+}
