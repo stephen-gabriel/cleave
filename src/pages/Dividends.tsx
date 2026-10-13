@@ -15,12 +15,13 @@ import { Link } from '../router'
 import { refreshEnvioStore, envioConfigured, useEnvio } from '../data/useEnvio'
 import { queries } from '../data/envio'
 import type { Declaration } from '../data/envio'
+import { deriveDeclarationStatus, deriveDemoCooldownSeconds } from '../lib/dividends'
+import type { DeclarationStatus } from '../lib/dividends'
 import './Dividends.css'
 
 const DEMO_COOLDOWN_SECONDS = 120
 const NOTICE_SECONDS = 60
 
-type DeclarationStatus = 'none' | 'countdown' | 'ready' | 'paid'
 type Phase = 'idle' | 'claiming' | 'declaring' | 'distributing' | 'drip'
 
 export default function Dividends() {
@@ -43,6 +44,8 @@ export default function Dividends() {
   const amountPerShare = state.amountPerShare
   const latestSource = state.latestSource
   const refPrice = state.refPrice
+  const latestDeclaredAt = state.latestDeclaredAt
+  const latestExAt = state.latestExAt
 
   const declarations = useEnvio(queries.declarations(50))
 
@@ -78,20 +81,19 @@ export default function Dividends() {
   }, [oracleCount, amountPerShare, refPrice, latestSource])
 
   const declarationStatus = useMemo((): DeclarationStatus => {
-    if (!latestDeclaration) return 'none'
-    if (matured) return 'paid'
-    const exAt = getExAt(latestDeclaration.id)
-    if (exAt === null) return 'none'
-    if (nowSec < exAt) return 'countdown'
-    const distCount = distributedCount ?? 0
-    if (distCount < latestDeclaration.id) return 'ready'
-    return 'paid'
-  }, [latestDeclaration, matured, distributedCount, nowSec])
+    return deriveDeclarationStatus({
+      latestId: latestDeclaration?.id ?? null,
+      exAt: latestExAt,
+      distributedCount,
+      matured,
+      nowSec,
+    })
+  }, [latestDeclaration, latestExAt, distributedCount, matured, nowSec])
 
   const nextExAt = useMemo(() => {
     if (!latestDeclaration) return null
-    return getExAt(latestDeclaration.id)
-  }, [latestDeclaration])
+    return latestExAt
+  }, [latestDeclaration, latestExAt])
 
   const busy = phase !== 'idle'
   const canClaim = !!session.wallet && !loading && divPending !== null && divPending > 0n && !busy
@@ -184,13 +186,15 @@ export default function Dividends() {
   }, [busy, session, refresh, runDrip])
 
   const demoCooldownRemaining = useMemo(() => {
-    if (latestDeclaration === null || latestDeclaration.source !== 'Demo') return 0
-    if (distributedCount === null || distributedCount === 0) return 0
-    const lastDeclaredAt = getDeclaredAt(latestDeclaration.id)
-    if (lastDeclaredAt === null) return 0
-    const remaining = lastDeclaredAt + DEMO_COOLDOWN_SECONDS - nowSec
-    return Math.max(0, remaining)
-  }, [latestDeclaration, distributedCount, nowSec])
+    if (latestDeclaration === null) return 0
+    return deriveDemoCooldownSeconds({
+      source: latestDeclaration.source,
+      distributedCount,
+      declaredAt: latestDeclaredAt,
+      nowSec,
+      cooldownSeconds: DEMO_COOLDOWN_SECONDS,
+    })
+  }, [latestDeclaration, distributedCount, latestDeclaredAt, nowSec])
 
   const envioError = declarations.status === 'error'
 
@@ -232,16 +236,6 @@ export default function Dividends() {
       <EducationFooter />
     </div>
   )
-}
-
-function getExAt(_id: number): number | null {
-  // In production this would look up from Envio or chain state
-  return null
-}
-
-function getDeclaredAt(_id: number): number | null {
-  // In production this would look up from Envio or chain state
-  return null
 }
 
 function useElapsedSeconds(active: boolean): number {
@@ -362,7 +356,7 @@ function NextDividendPanel({
             onClick={onDeclareDemo}
           >
             {demoCooldownRemaining > 0
-              ? `Declare dividend (demo) · {demoCooldownRemaining}s`
+              ? `Declare dividend (demo) · ${demoCooldownRemaining}s`
               : 'Declare dividend (demo)'}
           </button>
         </div>

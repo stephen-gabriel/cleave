@@ -30,6 +30,8 @@ export type ChainState = {
   refPrice: number | null
   amountPerShare: number | null
   latestSource: number | null
+  latestDeclaredAt: number | null
+  latestExAt: number | null
   poolPriceReserveToken: bigint | null
   poolPriceReserveQuote: bigint | null
   poolDivReserveToken: bigint | null
@@ -64,6 +66,8 @@ const EMPTY: Omit<
   refPrice: null,
   amountPerShare: null,
   latestSource: null,
+  latestDeclaredAt: null,
+  latestExAt: null,
   poolPriceReserveToken: null,
   poolPriceReserveQuote: null,
   poolDivReserveToken: null,
@@ -276,6 +280,8 @@ export function useChainState(address: Address | null): ChainState {
 
       let amountPerShare: number | null = null
       let latestSource: number | null = null
+      let latestDeclaredAt: number | null = null
+      let latestExAt: number | null = null
       if (oracleCount !== null && oracleCount > 0) {
         const latest = await publicClient.readContract({
           address: CHAIN.oracle,
@@ -293,6 +299,8 @@ export function useChainState(address: Address | null): ChainState {
         }
         amountPerShare = Number(declared.amountPerShare) / 1e18
         latestSource = declared.source
+        latestDeclaredAt = Number(declared.declaredAt)
+        latestExAt = Number(declared.exAt)
       }
 
       const monBalance = await publicClient.getBalance({ address })
@@ -312,6 +320,8 @@ export function useChainState(address: Address | null): ChainState {
         refPrice,
         amountPerShare,
         latestSource,
+        latestDeclaredAt,
+        latestExAt,
         poolPriceReserveToken,
         poolPriceReserveQuote,
         poolDivReserveToken,
