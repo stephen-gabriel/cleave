@@ -88,6 +88,8 @@ export interface PlannedAction {
   kind: ActionKind
   describe: string
   estimateGasCostWei: bigint
+  /** True only when a fresh approval tx will be broadcast for this action. */
+  approvalNeeded?: boolean
   params?: Record<string, bigint>
 }
 
@@ -97,6 +99,8 @@ export interface TxResult {
   gasPriceWei?: bigint
   hash?: string
   error?: string
+  /** Actual broadcast tx count for this action (1, or 2 with approval). */
+  txs?: number
 }
 
 export interface RunSummary {
@@ -116,6 +120,8 @@ export interface RunSummary {
 export interface LoopDeps {
   wallets: string[]
   config: BotConfig
+  /** Shared budget (setup + loop). When omitted, the loop creates a fresh one. */
+  budget?: TxBudget
   prepareAction: (wallet: string, splitsDone: number) => Promise<PlannedAction | null>
   execute: (wallet: string, action: PlannedAction) => Promise<TxResult>
   isStopped: () => boolean
@@ -422,8 +428,8 @@ export class TxBudget {
     this.reservedGasWei = this.reservedGasWei > estimateCostWei ? this.reservedGasWei - estimateCostWei : 0n
   }
 
-  recordSuccess(gasCostWei: bigint): void {
-    this.txCount += 1
+  recordSuccess(gasCostWei: bigint, txCount = 1): void {
+    this.txCount += txCount
     this.gasSpentWei += gasCostWei
   }
 
@@ -521,7 +527,7 @@ function countKind(summary: RunSummary, kind: ActionKind): void {
 export async function runLoop(deps: LoopDeps): Promise<RunSummary> {
   const summary = emptySummary()
   const failures = new FailureTracker()
-  const budget = new TxBudget(deps.config.maxTxs, deps.config.maxGasMon)
+  const budget = deps.budget ?? new TxBudget(deps.config.maxTxs, deps.config.maxGasMon)
   const start = deps.now()
   let index = 0
   let consecutiveGlobalFailures = 0
@@ -565,13 +571,36 @@ export async function runLoop(deps: LoopDeps): Promise<RunSummary> {
 
     await deps.rateLimit()
 
-    let action: PlannedAction | null
-    try {
-      action = await deps.prepareAction(wallet, splitsDone)
-    } catch (error) {
-      summary.skipped += 1
-      skipStreak += 1
-      deps.log(`skip ${shortAddr(wallet)}: prepare failed: ${String(error)}`)
+    let action: PlannedAction | null = null
+    let prepareAttempts = 0
+    let prepareFailed = false
+    for (;;) {
+      prepareAttempts += 1
+      try {
+        action = await deps.prepareAction(wallet, splitsDone)
+        break
+      } catch (error) {
+        const msg = String(error)
+        const rateLimited = /15\/sec|rate|429|too many/i.test(msg)
+        if (rateLimited && prepareAttempts < 4) {
+          const backoff = prepareAttempts * 750
+          deps.log(`retry ${shortAddr(wallet)}: prepare rate-limited (attempt ${prepareAttempts}) after ${backoff} ms`)
+          await deps.sleep(backoff)
+          continue
+        }
+        prepareFailed = true
+        summary.skipped += 1
+        skipStreak += 1
+        deps.log(`skip ${shortAddr(wallet)}: prepare failed: ${msg}`)
+        break
+      }
+    }
+
+    if (prepareFailed) {
+      if (skipStreak > deps.wallets.length * 4) {
+        summary.stopReason = 'no further actions available'
+        break
+      }
       continue
     }
 
@@ -592,17 +621,19 @@ export async function runLoop(deps: LoopDeps): Promise<RunSummary> {
       break
     }
 
-    const needsApproval = action.kind.startsWith('buy-') || action.kind.startsWith('sell-') || action.kind === 'split'
-    const txCount = needsApproval ? 2 : 1
+    // Reserve only for txs that will actually be broadcast this step.
+    // Reused bounded allowances need no approval tx (setup already paid those once).
+    const needsApproval = action.approvalNeeded === true
+    const reservedTxs = needsApproval ? 2 : 1
 
-    if (!budget.canConfirm(txCount) || budget.wouldExceedGas(action.estimateGasCostWei)) {
-      summary.stopReason = budget.canConfirm(txCount) ? 'max gas reached' : 'max txs reached'
+    if (!budget.canConfirm(reservedTxs) || budget.wouldExceedGas(action.estimateGasCostWei)) {
+      summary.stopReason = budget.canConfirm(reservedTxs) ? 'max gas reached' : 'max txs reached'
       break
     }
 
-    const reserved = budget.reserve(txCount, action.estimateGasCostWei)
+    const reserved = budget.reserve(reservedTxs, action.estimateGasCostWei)
     if (!reserved) {
-      summary.stopReason = budget.canConfirm(txCount) ? 'max gas reached' : 'max txs reached'
+      summary.stopReason = budget.canConfirm(reservedTxs) ? 'max gas reached' : 'max txs reached'
       break
     }
 
@@ -614,21 +645,22 @@ export async function runLoop(deps: LoopDeps): Promise<RunSummary> {
     }
 
     const gasCost = (result.gasUsed ?? 0n) * (result.gasPriceWei ?? 0n)
+    const actualTxs = Math.max(1, result.txs ?? 1)
 
     if (result.ok) {
-      budget.release(txCount, action.estimateGasCostWei)
+      budget.release(reservedTxs, action.estimateGasCostWei)
       failures.recordSuccess(wallet)
       consecutiveGlobalFailures = 0
-      budget.recordSuccess(gasCost)
+      budget.recordSuccess(gasCost, actualTxs)
       summary.gasSpentWei += gasCost
       countKind(summary, action.kind)
       if (action.kind === 'split') splitsDone += 1
-      summary.txCount += 1
+      summary.txCount += actualTxs
       deps.log(
         `ok   ${shortAddr(wallet)} ${action.kind}${action.kind === 'split' || action.kind === 'merge' ? ` (${splitsDone} splits)` : ''} ${result.hash ?? ''}`.trimEnd(),
       )
     } else {
-      budget.release(txCount, action.estimateGasCostWei)
+      budget.release(reservedTxs, action.estimateGasCostWei)
       budget.recordFailureGas(gasCost)
       summary.failed += 1
       consecutiveGlobalFailures += 1

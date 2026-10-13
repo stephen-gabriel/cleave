@@ -500,8 +500,25 @@ describe('runLoop', () => {
         params: { amount: E },
       }),
     })
+    expect(summary.txCount).toBe(5)
+    expect(summary.splits).toBe(5)
+    expect(summary.stopReason).toBe('max txs reached')
+  })
+
+  it('reserves two txs when an action needs a fresh approval', async () => {
+    const { summary } = await runMockLoop({
+      maxTxs: 5,
+      prepare: async (): Promise<PlannedAction | null> => ({
+        kind: 'split',
+        describe: 'split with approval',
+        estimateGasCostWei: 0n,
+        approvalNeeded: true,
+        params: { amount: E },
+      }),
+      executeResult: () => ({ ok: true, gasUsed: 1_000n, gasPriceWei: 1n, hash: '0xmock', txs: 2 }),
+    })
     expect(summary.txCount).toBe(4)
-    expect(summary.splits).toBe(4)
+    expect(summary.splits).toBe(2)
     expect(summary.stopReason).toBe('max txs reached')
   })
 

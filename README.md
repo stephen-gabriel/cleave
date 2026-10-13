@@ -168,7 +168,9 @@ powershell -File .\scripts\scan-secrets.ps1
 
 Solo builder. Hackathon demo on Monad Testnet — not a live exchange, not financial advice.
 
-No license file is attached to this repository yet; all rights reserved by the author unless a license is added before judging.
+Licensed under the [MIT License](./LICENSE).
+
+Licensed under the [MIT License](./LICENSE).
 
 ## Docs
 

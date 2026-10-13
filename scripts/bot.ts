@@ -269,17 +269,19 @@ class ChainGateway {
 
     try {
       const receipt = await this.publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 })
+      const effectivePrice =
+        (receipt as { effectiveGasPrice?: bigint }).effectiveGasPrice ?? this.maxFeePerGas
       if (receipt.status !== 'success') {
         return {
           ok: false,
           hash,
           error: 'transaction reverted',
           gasUsed: receipt.gasUsed,
-          gasPriceWei: this.maxFeePerGas,
+          gasPriceWei: effectivePrice,
         }
       }
       this.nonces.set(key, nonce + 1)
-      return { ok: true, hash, gasUsed: receipt.gasUsed, gasPriceWei: this.maxFeePerGas }
+      return { ok: true, hash, gasUsed: receipt.gasUsed, gasPriceWei: effectivePrice }
     } catch (error) {
       return {
         ok: false,
@@ -435,10 +437,21 @@ async function planLoopAction(
       encodeFunctionData({ abi: POOL_ABI, functionName: 'swapExactIn', args: [false, usdIn, min] }),
       addr,
     ))
+    const approval = await ensureBoundedAllowance(
+      gateway,
+      account,
+      addresses.usd,
+      ERC20_ABI,
+      kind === 'buy-div' ? addresses.poolDiv : addresses.poolPrice,
+      BOUND_USD_POOL,
+      usdIn,
+    )
+    const approvalGas = approval ? gateway.gasCostWei(approval.estimatedGas) : 0n
     return {
       kind,
       describe: `buy ${kind === 'buy-div' ? 'div' : 'price'}: in=${usdIn} mUSD minOut=${min}`,
-      estimateGasCostWei: gateway.gasCostWei(estimated),
+      estimateGasCostWei: gateway.gasCostWei(estimated) + approvalGas,
+      approvalNeeded: approval !== null,
       params: { amountIn: usdIn, minOut: min },
     }
   }
@@ -462,10 +475,21 @@ async function planLoopAction(
       encodeFunctionData({ abi: POOL_ABI, functionName: 'swapExactIn', args: [true, legIn, min] }),
       addr,
     ))
+    const approval = await ensureBoundedAllowance(
+      gateway,
+      account,
+      kind === 'sell-div' ? addresses.divLeg : addresses.priceLeg,
+      SPLIT_TOKEN_ABI,
+      pool,
+      BOUND_LEG_POOL,
+      legIn,
+    )
+    const approvalGas = approval ? gateway.gasCostWei(approval.estimatedGas) : 0n
     return {
       kind,
       describe: `sell ${kind === 'sell-div' ? 'dACME' : 'pACME'}: in=${legIn} minOut=${min} mUSD`,
-      estimateGasCostWei: gateway.gasCostWei(estimated),
+      estimateGasCostWei: gateway.gasCostWei(estimated) + approvalGas,
+      approvalNeeded: approval !== null,
       params: { amountIn: legIn, minOut: min },
     }
   }
@@ -485,10 +509,21 @@ async function planLoopAction(
     } catch {
       estimated = 257_238n
     }
+    const approval = await ensureBoundedAllowance(
+      gateway,
+      account,
+      addresses.stock,
+      ERC20_ABI,
+      addresses.splitter,
+      BOUND_SPLITTER,
+      amount,
+    )
+    const approvalGas = approval ? gateway.gasCostWei(approval.estimatedGas) : 0n
     return {
       kind,
       describe: `split ${amount} mACME`,
-      estimateGasCostWei: gateway.gasCostWei(estimated),
+      estimateGasCostWei: gateway.gasCostWei(estimated) + approvalGas,
+      approvalNeeded: approval !== null,
       params: { amount },
     }
   }
@@ -607,14 +642,30 @@ async function executePlanned(
 
     const tokenIn = !isBuy
     const approval = await ensureBoundedAllowance(gateway, account, spendToken, spendAbi, pool, bound, amountIn)
+    let approvalGasUsed = 0n
+    let txs = 1
     if (approval) {
       const approveResult = await gateway.send(account, approval.to, approval.data)
-      if (!approveResult.ok) return approveResult
+      if (!approveResult.ok) {
+        return {
+          ...approveResult,
+          txs: 1,
+          gasUsed: approveResult.gasUsed ?? approval.estimatedGas,
+        }
+      }
+      approvalGasUsed = approveResult.gasUsed ?? approval.estimatedGas
+      txs = 2
       await sleep(300)
     }
 
     const data = encodeFunctionData({ abi: POOL_ABI, functionName: 'swapExactIn', args: [tokenIn, amountIn, minOut] })
-    return gateway.send(account, pool, data)
+    const swapResult = await gateway.send(account, pool, data)
+    return {
+      ...swapResult,
+      txs,
+      gasUsed: (swapResult.gasUsed ?? 0n) + approvalGasUsed,
+      gasPriceWei: swapResult.gasPriceWei ?? gateway.maxFeePerGas,
+    }
   }
 
   if (action.kind === 'split') {
@@ -629,13 +680,29 @@ async function executePlanned(
       BOUND_SPLITTER,
       amount,
     )
+    let approvalGasUsed = 0n
+    let txs = 1
     if (approval) {
       const approveResult = await gateway.send(account, approval.to, approval.data)
-      if (!approveResult.ok) return approveResult
+      if (!approveResult.ok) {
+        return {
+          ...approveResult,
+          txs: 1,
+          gasUsed: approveResult.gasUsed ?? approval.estimatedGas,
+        }
+      }
+      approvalGasUsed = approveResult.gasUsed ?? approval.estimatedGas
+      txs = 2
       await sleep(300)
     }
     const data = encodeFunctionData({ abi: SPLITTER_ABI, functionName: 'split', args: [amount] })
-    return gateway.send(account, addresses.splitter, data)
+    const splitResult = await gateway.send(account, addresses.splitter, data)
+    return {
+      ...splitResult,
+      txs,
+      gasUsed: (splitResult.gasUsed ?? 0n) + approvalGasUsed,
+      gasPriceWei: splitResult.gasPriceWei ?? gateway.maxFeePerGas,
+    }
   }
 
   if (action.kind === 'merge') {
@@ -679,7 +746,8 @@ async function runBot(config: BotConfig): Promise<void> {
     accounts.set(account.address.toLowerCase(), account)
   }
 
-  const setupBudget = new TxBudget(config.maxTxs, config.maxGasMon)
+  // Shared budget across setup + run so maxTxs/maxGasMon are a single combined ceiling.
+  const sharedBudget = new TxBudget(config.maxTxs, config.maxGasMon)
 
   logLine(
     `bot starting: ${addressesList.length} wallets, execute=${config.execute}, burst=${config.burst ?? 'none'}, maxTxs=${config.maxTxs}, maxGas=${config.maxGasMon} MON`,
@@ -695,7 +763,7 @@ async function runBot(config: BotConfig): Promise<void> {
       continue
     }
     for (const tx of setupTxs) {
-      const result = await executeSetupWithBudget(gateway, account, tx, config.execute, setupBudget)
+      const result = await executeSetupWithBudget(gateway, account, tx, config.execute, sharedBudget)
       if (!result.ok && config.execute) {
         logLine(`setup issue ${shortAddr(address)}: ${result.error ?? 'unknown'}`)
       }
@@ -723,6 +791,7 @@ async function runBot(config: BotConfig): Promise<void> {
   const summary = await runLoop({
     wallets: addressesList,
     config,
+    budget: sharedBudget,
     isStopped: () => shutdown.isStopped(),
     checkStopFile: () => shutdown.checkStopFile(),
     rateLimit: dynamicRateLimit,
@@ -756,7 +825,8 @@ async function runBot(config: BotConfig): Promise<void> {
     `  trades: ${summary.trades}, splits: ${summary.splits}, merges: ${summary.merges}, claims: ${summary.claims}, distributes: ${summary.distributes}`,
   )
   logLine(`  failed: ${summary.failed}, skipped: ${summary.skipped}`)
-  logLine(`  gas spent (declared): ${Number(summary.gasSpentWei) / 1e18} MON`)
+  logLine(`  gas spent (declared/effective): ${Number(sharedBudget.gasSpentWei) / 1e18} MON`)
+  logLine(`  shared budget: ${sharedBudget.txCount}/${sharedBudget.maxTxs} txs, ${Number(sharedBudget.gasSpentWei) / 1e18}/${config.maxGasMon} MON`)
   if (summary.splits < config.minSplits) {
     logLine(`warn: splits ${summary.splits} < min-splits ${config.minSplits}; re-run to top up`)
   }
@@ -948,28 +1018,33 @@ async function cmdVerify(graphql: string | null, minTrades: number, minSplits: n
   const simSwaps = (swapsData.Swap as unknown[] | undefined)?.length ?? 0
   logLine(`simulated Swaps (indexed, up to 1000): ${simSwaps}`)
 
-  const indexerStatus = await post(
-    `query {
-      _meta { block { number } }
-    }`,
-    {},
-  )
-  const currentBlock = (indexerStatus._meta as { block?: { number: number } } | undefined)?.block?.number
-  if (currentBlock) {
-    logLine(`indexer head block: ${currentBlock}`)
+  try {
+    const indexerStatus = await post(
+      `query {
+        _meta
+      }`,
+      {},
+    )
+    logLine(`indexer _meta: ${JSON.stringify(indexerStatus._meta)}`)
+  } catch (error) {
+    logLine(`indexer status query skipped: ${String(error)}`)
   }
 
-  const classifierCheck = await post(
-    `query ($chain: Int!) {
-      SimulatedClassifier(where: {chainId: {_eq: $chain}}, limit: 1) { id address }
-    }`,
-    { chain: 10143 },
-  )
-  const classifier = (classifierCheck.SimulatedClassifier as Array<Record<string, unknown>> | undefined)?.[0]
-  if (classifier) {
-    logLine(`classifier registered: ${classifier.address} (id: ${classifier.id})`)
-  } else {
-    logLine('WARNING: no SimulatedClassifier registered for chain 10143')
+  try {
+    const classifierCheck = await post(
+      `query ($chain: Int!) {
+        SimulatedClassifier(where: {chainId: {_eq: $chain}}, limit: 1) { id address }
+      }`,
+      { chain: 10143 },
+    )
+    const classifier = (classifierCheck.SimulatedClassifier as Array<Record<string, unknown>> | undefined)?.[0]
+    if (classifier) {
+      logLine(`classifier registered: ${classifier.address} (id: ${classifier.id})`)
+    } else {
+      logLine('WARNING: no SimulatedClassifier registered for chain 10143')
+    }
+  } catch {
+    logLine('classifier entity not present in this schema (SIM labels come from indexer isSimulated flags)')
   }
 
   const tradesOk = simSwaps >= minTrades
