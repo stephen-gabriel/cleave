@@ -91,7 +91,7 @@ Dividend declarations and the reference price enter the chain only through a CRE
 4. Write through the Keystone forwarder into `DividendOracle`.
 5. `Splitter.distribute()` uses the oracle to move value into the dividend leg.
 
-The sibling project **Cleave-CRE** contains the `CalculatorConsumer` workflow and CLI (simulate + broadcast). The on-screen **Declare dividend (demo)** button uses the same oracle path via `declareDemo` for a self-contained judge demo.
+This repository's **`cre/`** directory contains the current workflow (TypeScript + `@chainlink/cre-sdk`) with configuration and simulate/broadcast run instructions in [`cre/README.md`](./cre/README.md). The on-screen **Declare dividend (demo)** button uses the same oracle path via `declareDemo` for a self-contained judge demo.
 
 ## Envio
 
@@ -178,6 +178,6 @@ Licensed under the [MIT License](./LICENSE).
 
 ## Docs
 
-- `_build_plan/` — FRD, milestones, submission kit, UI spec
-- `docs/decisions.md` — architecture decision records
-- `indexer/README.md` — Envio config notes
+- [`cre/README.md`](./cre/README.md) — Chainlink CRE workflow: configuration, setup, simulate/broadcast
+- [`indexer/README.md`](./indexer/README.md) — Envio HyperIndex config, schema, handlers, local checks
+- `docs/gas.md` — measured gas per contract call from the Hardhat test suite

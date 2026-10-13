@@ -22,7 +22,7 @@ import type { DeploymentFile } from './lib/deployments'
 
 const DAY = 86_400
 const GAS_HEADROOM = 125n // estimated gas x 1.25 as the declared limit
-const SERIES_MATURITY_DAYS = 120 // redeployed 2026-10-08: judging window unknown (docs/decisions.md)
+const SERIES_MATURITY_DAYS = 120 // redeployed 2026-10-08: judging window unknown
 // Superseded Series A Splitter: still a registered mUSD minter and must be revoked
 // whenever a new Splitter is deployed (it is removed from deployments/monad-testnet.json).
 const LEGACY_SPLITTER_MINTERS: readonly Address[] = [

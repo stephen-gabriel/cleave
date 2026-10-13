@@ -5,7 +5,7 @@ Chainlink CRE workflow that feeds dividend declarations into the Monad Testnet
 writes through the Monad Testnet CRE forwarder) that previously wrote to the
 `CalculatorConsumer`.
 
-Implements `frd.md` §5:
+Workflow steps:
 
 1. HTTP GET `https://cleave-web.vercel.app/api/dividend-feed`.
 2. EVM read `DividendOracle.lastSeq()`.

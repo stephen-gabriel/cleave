@@ -36,3 +36,18 @@ cache
 *.njsproj
 *.sln
 *.sw?
+
+# Internal planning / local-only material — kept on the owner's machine,
+# intentionally NOT in the public repo. Specific paths only; never ignore
+# source, tests, config, or documentation broadly.
+/_build_plan/
+/NOTES.md
+/docs/decisions.md
+/docs/deploy-log.md
+/assets/
+/videos/
+/brand/
+/_gas.mjs
+/temp_tsc.txt
+/preview.log
+/dev.log
